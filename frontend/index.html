@@ -5,7 +5,7 @@
   <title>Real-Time Bus Tracker — Dashboard</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 
-  <!-- Leaflet CSS (NO integrity) -->
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <style>
@@ -88,13 +88,17 @@
   <div>🔴 Full (≥30)</div>
 </div>
 
-<!-- Leaflet JS (NO integrity) -->
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
 (() => {
   /* ================= CONFIG ================= */
-  const API_BASE = "https://bus-tracker-backend-sv2m.onrender.com";
+  const API_BASE =
+    location.hostname === "localhost"
+      ? "http://localhost:3000"
+      : "https://bus-tracker-backend-sv2m.onrender.com";
+
   const API_PATH = "/api/bus_locations";
   const POLL_INTERVAL = 3000;
 
@@ -106,7 +110,7 @@
     attribution: "© OpenStreetMap contributors"
   }).addTo(map);
 
-  let markers = new Map();
+  const markers = new Map();
 
   function getColor(pax) {
     if (pax < 10) return "green";
@@ -124,7 +128,13 @@
         const color = getColor(passenger_count);
 
         if (markers.has(bus_id)) {
-          markers.get(bus_id).setLatLng([latitude, longitude]);
+          const marker = markers.get(bus_id);
+          marker.setLatLng([latitude, longitude]);
+          marker.setStyle({ color, fillColor: color });
+          marker.setPopupContent(
+            `<b>Bus:</b> ${bus_id}<br>
+             <b>Passengers:</b> ${passenger_count}`
+          );
         } else {
           const marker = L.circleMarker([latitude, longitude], {
             radius: 10,
@@ -147,27 +157,31 @@
   }
 
   /* ================= SIMULATOR ================= */
-  let simulatorRunning = false;
+  let simulatorInterval = null;
   const simBtn = document.getElementById("simToggle");
 
   simBtn.onclick = () => {
-    simulatorRunning = !simulatorRunning;
-    simBtn.textContent = simulatorRunning ? "Stop Simulator" : "Start Simulator";
-
-    if (simulatorRunning) {
-      setInterval(() => {
-        fetch(API_BASE + "/api/bus/update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            bus_id: "SIM-01",
-            latitude: 12.9716 + (Math.random() - 0.5) * 0.01,
-            longitude: 79.1588 + (Math.random() - 0.5) * 0.01,
-            passenger_count: Math.floor(Math.random() * 40)
-          })
-        });
-      }, 2000);
+    if (simulatorInterval) {
+      clearInterval(simulatorInterval);
+      simulatorInterval = null;
+      simBtn.textContent = "Start Simulator";
+      return;
     }
+
+    simBtn.textContent = "Stop Simulator";
+
+    simulatorInterval = setInterval(() => {
+      fetch(API_BASE + "/api/bus/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bus_id: "SIM-01",
+          latitude: 12.9716 + (Math.random() - 0.5) * 0.01,
+          longitude: 79.1588 + (Math.random() - 0.5) * 0.01,
+          passenger_count: Math.floor(Math.random() * 40)
+        })
+      });
+    }, 2000);
   };
 
   /* ================= START ================= */
