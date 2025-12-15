@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Real-Time Bus Tracker — Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <!-- Leaflet CSS (NO integrity) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    .topbar {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      padding: 8px 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .btn {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .btn.secondary {
+      background: #eee;
+      color: #111;
+    }
+
+    .legend {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-size: 13px;
+    }
+
+    .legend div {
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="topbar">
+  <div class="title">🚌 Real-Time Bus Tracker</div>
+  <button class="btn secondary" id="simToggle">Start Simulator</button>
+</div>
+
+<div class="legend">
+  <div><b>Legend</b></div>
+  <div>🟢 Seats Available (&lt;10)</div>
+  <div>🟠 Standing Room (10–29)</div>
+  <div>🔴 Full (≥30)</div>
+</div>
+
+<!-- Leaflet JS (NO integrity) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+(() => {
+  /* ================= CONFIG ================= */
+  const API_BASE = "http://localhost:3000";
+  const API_PATH = "/api/bus_locations";
+  const POLL_INTERVAL = 3000;
+
+  /* ================= MAP ================= */
+  const map = L.map("map").setView([12.9716, 79.1588], 13);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "© OpenStreetMap contributors"
+  }).addTo(map);
+
+  let markers = new Map();
+
+  function getColor(pax) {
+    if (pax < 10) return "green";
+    if (pax < 30) return "orange";
+    return "red";
+  }
+
+  async function fetchBusData() {
+    try {
+      const res = await fetch(API_BASE + API_PATH);
+      const data = await res.json();
+
+      data.forEach(bus => {
+        const { bus_id, latitude, longitude, passenger_count } = bus;
+        const color = getColor(passenger_count);
+
+        if (markers.has(bus_id)) {
+          markers.get(bus_id).setLatLng([latitude, longitude]);
+        } else {
+          const marker = L.circleMarker([latitude, longitude], {
+            radius: 10,
+            color,
+            fillColor: color,
+            fillOpacity: 0.8
+          }).addTo(map);
+
+          marker.bindPopup(
+            `<b>Bus:</b> ${bus_id}<br>
+             <b>Passengers:</b> ${passenger_count}`
+          );
+
+          markers.set(bus_id, marker);
+        }
+      });
+    } catch (err) {
+      console.error("Error fetching bus data:", err);
+    }
+  }
+
+  /* ================= SIMULATOR ================= */
+  let simulatorRunning = false;
+  const simBtn = document.getElementById("simToggle");
+
+  simBtn.onclick = () => {
+    simulatorRunning = !simulatorRunning;
+    simBtn.textContent = simulatorRunning ? "Stop Simulator" : "Start Simulator";
+
+    if (simulatorRunning) {
+      setInterval(() => {
+        fetch(API_BASE + "/api/bus/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bus_id: "SIM-01",
+            latitude: 12.9716 + (Math.random() - 0.5) * 0.01,
+            longitude: 79.1588 + (Math.random() - 0.5) * 0.01,
+            passenger_count: Math.floor(Math.random() * 40)
+          })
+        });
+      }, 2000);
+    }
+  };
+
+  /* ================= START ================= */
+  fetchBusData();
+  setInterval(fetchBusData, POLL_INTERVAL);
+})();
+</script>
+
+</body>
+</html>
