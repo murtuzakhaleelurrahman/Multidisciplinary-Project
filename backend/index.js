@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Temporary in-memory data (later comes from Arduino)
+// In-memory bus data (Arduino replaces this later)
 let busData = [
   {
     bus_id: "BUS01",
@@ -21,19 +21,28 @@ let busData = [
   }
 ];
 
-// Test route
+// Health check
 app.get("/", (req, res) => {
   res.send("Bus Tracking Backend Running");
 });
 
-// Get bus locations
+// Get live bus data
 app.get("/api/bus_locations", (req, res) => {
   res.json(busData);
 });
 
-// Update bus data (this simulates Arduino POST)
+// Update bus data (Arduino / Simulator)
 app.post("/api/bus/update", (req, res) => {
   const { bus_id, latitude, longitude, passenger_count } = req.body;
+
+  if (
+    !bus_id ||
+    latitude === undefined ||
+    longitude === undefined ||
+    passenger_count === undefined
+  ) {
+    return res.status(400).json({ error: "Invalid data" });
+  }
 
   busData = [
     {
@@ -45,7 +54,7 @@ app.post("/api/bus/update", (req, res) => {
     }
   ];
 
-  res.json({ message: "Bus data updated" });
+  res.json({ message: "Bus data updated successfully" });
 });
 
 // Start server
