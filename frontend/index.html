@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Real-Time Bus Tracker — Dashboard</title>
+  <title>Real-Time Bus Tracker</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 
   <!-- Leaflet CSS -->
@@ -21,23 +21,32 @@
       inset: 0;
     }
 
+    /* Loading overlay */
+    #loading {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 20px 24px;
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.25);
+      z-index: 2000;
+      font-weight: bold;
+      text-align: center;
+    }
+
     .topbar {
       position: absolute;
       left: 12px;
       top: 12px;
       z-index: 1000;
       background: rgba(255,255,255,0.95);
+      padding: 8px 12px;
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      padding: 8px 12px;
       display: flex;
       gap: 10px;
       align-items: center;
-    }
-
-    .title {
-      font-weight: 600;
-      font-size: 14px;
     }
 
     .btn {
@@ -67,17 +76,17 @@
       font-size: 13px;
     }
 
-    .legend div {
-      margin-bottom: 6px;
-    }
+    .legend div { margin-bottom: 6px; }
   </style>
 </head>
 <body>
 
+<div id="loading">📡 Connecting to Server...<br><small>(Waking up backend)</small></div>
+
 <div id="map"></div>
 
 <div class="topbar">
-  <div class="title">🚌 Real-Time Bus Tracker</div>
+  <strong>🚌 Real-Time Bus Tracker</strong>
   <button class="btn secondary" id="simToggle">Start Simulator</button>
 </div>
 
@@ -103,12 +112,21 @@
   const POLL_INTERVAL = 3000;
 
   /* ================= MAP ================= */
-  const map = L.map("map").setView([12.9716, 79.1588], 13);
+  const map = L.map("map", {
+    center: [12.9716, 79.1588],
+    zoom: 13,
+    worldCopyJump: false,
+    maxBounds: [[-90, -180], [90, 180]],
+    maxBoundsViscosity: 1.0
+  });
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "© OpenStreetMap contributors"
-  }).addTo(map);
+  L.tileLayer(
+    "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap &copy; CARTO"
+    }
+  ).addTo(map);
 
   const markers = new Map();
 
@@ -123,36 +141,42 @@
       const res = await fetch(API_BASE + API_PATH);
       const data = await res.json();
 
+      // Hide loading on first success
+      document.getElementById("loading").style.display = "none";
+
       data.forEach(bus => {
-        const { bus_id, latitude, longitude, passenger_count } = bus;
+        const { bus_id, latitude, longitude, passenger_count, last_updated } = bus;
         const color = getColor(passenger_count);
+        const time = new Date(last_updated).toLocaleTimeString();
 
         if (markers.has(bus_id)) {
-          const marker = markers.get(bus_id);
-          marker.setLatLng([latitude, longitude]);
-          marker.setStyle({ color, fillColor: color });
-          marker.setPopupContent(
+          const m = markers.get(bus_id);
+          m.setLatLng([latitude, longitude]);
+          m.setStyle({ color, fillColor: color });
+          m.setPopupContent(
             `<b>Bus:</b> ${bus_id}<br>
-             <b>Passengers:</b> ${passenger_count}`
+             <b>Passengers:</b> ${passenger_count}<br>
+             <small>🕒 Updated: ${time}</small>`
           );
         } else {
-          const marker = L.circleMarker([latitude, longitude], {
+          const m = L.circleMarker([latitude, longitude], {
             radius: 10,
             color,
             fillColor: color,
-            fillOpacity: 0.8
+            fillOpacity: 0.85
           }).addTo(map);
 
-          marker.bindPopup(
+          m.bindPopup(
             `<b>Bus:</b> ${bus_id}<br>
-             <b>Passengers:</b> ${passenger_count}`
+             <b>Passengers:</b> ${passenger_count}<br>
+             <small>🕒 Updated: ${time}</small>`
           );
 
-          markers.set(bus_id, marker);
+          markers.set(bus_id, m);
         }
       });
     } catch (err) {
-      console.error("Error fetching bus data:", err);
+      console.error("Fetch error:", err);
     }
   }
 
