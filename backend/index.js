@@ -1,19 +1,19 @@
-// backend/index.js
-
 const express = require("express");
 const cors = require("cors");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// In-memory bus data (Arduino replaces this later)
+/*
+  In-memory data store
+  In real deployment, Arduino replaces this
+*/
 let busData = [
   {
-    bus_id: "BUS01",
+    bus_id: "BUS-HW-01",
     latitude: 12.9716,
     longitude: 79.1588,
     passenger_count: 18,
@@ -23,10 +23,10 @@ let busData = [
 
 // Health check
 app.get("/", (req, res) => {
-  res.send("Bus Tracking Backend Running");
+  res.send("✅ Bus Tracking Backend Running");
 });
 
-// Get live bus data
+// Get all bus locations
 app.get("/api/bus_locations", (req, res) => {
   res.json(busData);
 });
@@ -41,23 +41,29 @@ app.post("/api/bus/update", (req, res) => {
     longitude === undefined ||
     passenger_count === undefined
   ) {
-    return res.status(400).json({ error: "Invalid data" });
+    return res.status(400).json({ error: "Invalid payload" });
   }
 
-  busData = [
-    {
-      bus_id,
-      latitude,
-      longitude,
-      passenger_count,
-      last_updated: new Date().toISOString()
-    }
-  ];
+  // Replace or add bus
+  const index = busData.findIndex(b => b.bus_id === bus_id);
 
-  res.json({ message: "Bus data updated successfully" });
+  const updatedBus = {
+    bus_id,
+    latitude,
+    longitude,
+    passenger_count,
+    last_updated: new Date().toISOString()
+  };
+
+  if (index !== -1) {
+    busData[index] = updatedBus;
+  } else {
+    busData.push(updatedBus);
+  }
+
+  res.json({ message: "Bus data updated" });
 });
 
-// Start server
 app.listen(PORT, () => {
-  console.log(`Backend running on port ${PORT}`);
+  console.log(`🚍 Backend running on port ${PORT}`);
 });
