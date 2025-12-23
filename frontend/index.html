@@ -41,11 +41,6 @@ html, body, #map {
   align-items: center;
 }
 
-select, button {
-  padding: 6px;
-  border-radius: 6px;
-}
-
 .legend {
   position: absolute;
   right: 12px;
@@ -66,11 +61,9 @@ select, button {
 
 <div class="topbar">
   <b>🚌 Bus Tracker</b>
-
   <select id="busSelect">
     <option value="ALL">All Buses</option>
   </select>
-
   <button id="simBtn">Start Simulator</button>
 </div>
 
@@ -80,8 +73,9 @@ select, button {
   🟠 Delayed<br>
   🔴 Offline<br>
   <hr>
-  <b>Occupancy</b><br>
-  Blue bar = % filled
+  <b>Route</b><br>
+  Blue line = Bus route<br>
+  ⭕ = Bus stops
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -97,8 +91,23 @@ const API_BASE =
 const API_PATH = "/api/bus_locations";
 const MAX_CAPACITY = 40;
 
+/* 🔵 ROUTE DATA (STATIC) */
+const ROUTE_COORDS = [
+  [12.9716, 79.1588],
+  [12.9730, 79.1620],
+  [12.9755, 79.1650],
+  [12.9780, 79.1680],
+  [12.9810, 79.1710]
+];
+
+const BUS_STOPS = [
+  { name: "Stop A", coord: [12.9716, 79.1588] },
+  { name: "Stop B", coord: [12.9755, 79.1650] },
+  { name: "Stop C", coord: [12.9810, 79.1710] }
+];
+
 const map = L.map("map", {
-  center: [12.9716, 79.1588],
+  center: [12.9755, 79.1650],
   zoom: 13
 });
 
@@ -106,6 +115,24 @@ L.tileLayer(
   "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
   { attribution: "© OpenStreetMap, © CARTO" }
 ).addTo(map);
+
+/* Draw route polyline */
+L.polyline(ROUTE_COORDS, {
+  color: "#1e88e5",
+  weight: 5,
+  opacity: 0.7
+}).addTo(map);
+
+/* Draw bus stops */
+BUS_STOPS.forEach(stop => {
+  L.circleMarker(stop.coord, {
+    radius: 6,
+    color: "#1e88e5",
+    fillColor: "#fff",
+    fillOpacity: 1,
+    weight: 2
+  }).addTo(map).bindPopup(`<b>${stop.name}</b>`);
+});
 
 const markers = new Map();
 const busSelect = document.getElementById("busSelect");
@@ -118,7 +145,7 @@ function busStatus(lastUpdated) {
   return { text: "Offline", dot: "🔴" };
 }
 
-/* SVG directional icon */
+/* Directional SVG marker */
 function createArrowIcon(angle = 0) {
   return L.divIcon({
     className: "",
@@ -141,7 +168,6 @@ async function fetchData() {
 
     document.getElementById("loading").style.display = "none";
 
-    /* Populate dropdown dynamically */
     data.forEach(bus => {
       if (![...busSelect.options].some(o => o.value === bus.bus_id)) {
         const opt = document.createElement("option");
@@ -151,42 +177,25 @@ async function fetchData() {
       }
     });
 
-    const selectedBus = busSelect.value;
+    const selected = busSelect.value;
 
     data.forEach(bus => {
-      if (selectedBus !== "ALL" && bus.bus_id !== selectedBus) {
-        if (markers.has(bus.bus_id)) {
-          markers.get(bus.bus_id).setOpacity(0);
-        }
+      if (selected !== "ALL" && bus.bus_id !== selected) {
+        if (markers.has(bus.bus_id)) markers.get(bus.bus_id).setOpacity(0);
         return;
       }
 
       const status = busStatus(bus.last_updated);
       const time = new Date(bus.last_updated).toLocaleTimeString();
 
-      const percent = Math.min(
-        Math.round((bus.passenger_count / MAX_CAPACITY) * 100),
-        100
-      );
-
-      const occupancyBar = `
-        <div style="background:#ddd; border-radius:6px; height:8px; margin:6px 0;">
-          <div style="
-            width:${percent}%;
-            height:100%;
-            background:#1e88e5;
-            border-radius:6px;">
-          </div>
-        </div>
-        <small>${percent}% occupied</small>
-      `;
-
       if (!markers.has(bus.bus_id)) {
-        const marker = L.marker(
-          [bus.latitude, bus.longitude],
-          { icon: createArrowIcon(Math.random()*360) }
-        ).addTo(map);
-        markers.set(bus.bus_id, marker);
+        markers.set(
+          bus.bus_id,
+          L.marker(
+            [bus.latitude, bus.longitude],
+            { icon: createArrowIcon(Math.random()*360) }
+          ).addTo(map)
+        );
       } else {
         markers.get(bus.bus_id).setLatLng([bus.latitude, bus.longitude]);
       }
@@ -199,7 +208,6 @@ async function fetchData() {
         <b>${bus.bus_id}</b><br>
         ${status.dot} ${status.text}<br>
         Passengers: ${bus.passenger_count}<br>
-        ${occupancyBar}
         <small>🕒 ${time}</small>
       `);
     });
@@ -212,7 +220,7 @@ async function fetchData() {
 setInterval(fetchData, 3000);
 fetchData();
 
-/* Simulator (adds a second bus automatically if you want later) */
+/* Simulator */
 let sim = null;
 document.getElementById("simBtn").onclick = () => {
   if (sim) {
