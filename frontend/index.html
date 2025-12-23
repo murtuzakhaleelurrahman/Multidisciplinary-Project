@@ -37,8 +37,13 @@ html, body, #map {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
+}
+
+select, button {
+  padding: 6px;
+  border-radius: 6px;
 }
 
 .legend {
@@ -60,7 +65,12 @@ html, body, #map {
 <div id="map"></div>
 
 <div class="topbar">
-  <b>🚌 Real-Time Bus Tracker</b>
+  <b>🚌 Bus Tracker</b>
+
+  <select id="busSelect">
+    <option value="ALL">All Buses</option>
+  </select>
+
   <button id="simBtn">Start Simulator</button>
 </div>
 
@@ -98,6 +108,7 @@ L.tileLayer(
 ).addTo(map);
 
 const markers = new Map();
+const busSelect = document.getElementById("busSelect");
 
 /* Status logic */
 function busStatus(lastUpdated) {
@@ -107,23 +118,19 @@ function busStatus(lastUpdated) {
   return { text: "Offline", dot: "🔴" };
 }
 
-/* ✅ SVG Arrow Icon (NO white box) */
+/* SVG directional icon */
 function createArrowIcon(angle = 0) {
   return L.divIcon({
-    className: "", // 🔥 removes default white box
+    className: "",
     html: `
-      <svg
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
+      <svg width="28" height="28" viewBox="0 0 24 24"
         style="transform: rotate(${angle}deg);"
-        fill="#1e88e5"
-      >
+        fill="#1e88e5">
         <path d="M12 2L19 21L12 17L5 21Z"/>
       </svg>
     `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14]
+    iconSize: [28,28],
+    iconAnchor: [14,14]
   });
 }
 
@@ -134,7 +141,26 @@ async function fetchData() {
 
     document.getElementById("loading").style.display = "none";
 
+    /* Populate dropdown dynamically */
     data.forEach(bus => {
+      if (![...busSelect.options].some(o => o.value === bus.bus_id)) {
+        const opt = document.createElement("option");
+        opt.value = bus.bus_id;
+        opt.textContent = bus.bus_id;
+        busSelect.appendChild(opt);
+      }
+    });
+
+    const selectedBus = busSelect.value;
+
+    data.forEach(bus => {
+      if (selectedBus !== "ALL" && bus.bus_id !== selectedBus) {
+        if (markers.has(bus.bus_id)) {
+          markers.get(bus.bus_id).setOpacity(0);
+        }
+        return;
+      }
+
       const status = busStatus(bus.last_updated);
       const time = new Date(bus.last_updated).toLocaleTimeString();
 
@@ -158,9 +184,8 @@ async function fetchData() {
       if (!markers.has(bus.bus_id)) {
         const marker = L.marker(
           [bus.latitude, bus.longitude],
-          { icon: createArrowIcon(Math.random() * 360) }
+          { icon: createArrowIcon(Math.random()*360) }
         ).addTo(map);
-
         markers.set(bus.bus_id, marker);
       } else {
         markers.get(bus.bus_id).setLatLng([bus.latitude, bus.longitude]);
@@ -178,6 +203,7 @@ async function fetchData() {
         <small>🕒 ${time}</small>
       `);
     });
+
   } catch (e) {
     console.error(e);
   }
@@ -186,7 +212,7 @@ async function fetchData() {
 setInterval(fetchData, 3000);
 fetchData();
 
-/* Simulator */
+/* Simulator (adds a second bus automatically if you want later) */
 let sim = null;
 document.getElementById("simBtn").onclick = () => {
   if (sim) {
