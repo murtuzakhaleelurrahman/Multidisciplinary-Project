@@ -55,12 +55,8 @@ html, body, #map {
 </div>
 
 <div class="legend">
-  <b>Status</b><br>
-  🟢 Online<br>
-  🟠 Delayed<br>
-  🔴 Offline<br>
-  <hr>
-  Auto-remove after 2 minutes
+  <b>Direction</b><br>
+  Arrow shows real movement direction
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -74,7 +70,45 @@ const API_BASE =
     : "https://bus-tracker-backend-sv2m.onrender.com";
 
 const API_PATH = "/api/bus_locations";
-const OFFLINE_REMOVE_MS = 120000; // 🔥 2 minutes
+
+/* Store previous positions */
+const lastPositions = new Map();
+
+/* Calculate bearing between two GPS points */
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const toRad = deg => deg * Math.PI / 180;
+  const toDeg = rad => rad * 180 / Math.PI;
+
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δλ = toRad(lon2 - lon1);
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x =
+    Math.cos(φ1) * Math.sin(φ2) -
+    Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+  let θ = Math.atan2(y, x);
+  θ = (toDeg(θ) + 360) % 360; // normalize
+
+  return θ;
+}
+
+/* SVG arrow icon */
+function createArrowIcon(angle = 0) {
+  return L.divIcon({
+    className: "",
+    html: `
+      <svg width="28" height="28" viewBox="0 0 24 24"
+        style="transform: rotate(${angle}deg); transition: transform 0.3s linear;"
+        fill="#1e88e5">
+        <path d="M12 2L19 21L12 17L5 21Z"/>
+      </svg>
+    `,
+    iconSize: [28,28],
+    iconAnchor: [14,14]
+  });
+}
 
 const map = L.map("map", {
   center: [12.9755, 79.1650],
@@ -89,87 +123,57 @@ L.tileLayer(
 const markers = new Map();
 const busSelect = document.getElementById("busSelect");
 
-/* Status helper */
-function timeSince(lastUpdated) {
-  return Date.now() - new Date(lastUpdated).getTime();
-}
-
-/* SVG directional icon */
-function createArrowIcon(angle = 0) {
-  return L.divIcon({
-    className: "",
-    html: `
-      <svg width="28" height="28" viewBox="0 0 24 24"
-        style="transform: rotate(${angle}deg);"
-        fill="#1e88e5">
-        <path d="M12 2L19 21L12 17L5 21Z"/>
-      </svg>
-    `,
-    iconSize: [28,28],
-    iconAnchor: [14,14]
-  });
-}
-
 async function fetchData() {
   const res = await fetch(API_BASE + API_PATH);
   const data = await res.json();
 
-  const activeBusIds = new Set();
-
   data.forEach(bus => {
-    const age = timeSince(bus.last_updated);
-
-    // 🚨 Auto-remove if offline too long
-    if (age > OFFLINE_REMOVE_MS) {
-      if (markers.has(bus.bus_id)) {
-        map.removeLayer(markers.get(bus.bus_id));
-        markers.delete(bus.bus_id);
-      }
-
-      [...busSelect.options].forEach(opt => {
-        if (opt.value === bus.bus_id) opt.remove();
-      });
-
-      return;
-    }
-
-    activeBusIds.add(bus.bus_id);
-
-    // Add to dropdown if missing
     if (![...busSelect.options].some(o => o.value === bus.bus_id)) {
       const opt = document.createElement("option");
       opt.value = bus.bus_id;
       opt.textContent = bus.bus_id;
       busSelect.appendChild(opt);
     }
+  });
 
-    const selected = busSelect.value;
+  const selected = busSelect.value;
+
+  data.forEach(bus => {
     if (selected !== "ALL" && bus.bus_id !== selected) return;
+
+    let heading = 0;
+
+    if (lastPositions.has(bus.bus_id)) {
+      const prev = lastPositions.get(bus.bus_id);
+      heading = calculateBearing(
+        prev.lat, prev.lon,
+        bus.latitude, bus.longitude
+      );
+    }
+
+    lastPositions.set(bus.bus_id, {
+      lat: bus.latitude,
+      lon: bus.longitude
+    });
 
     if (!markers.has(bus.bus_id)) {
       markers.set(
         bus.bus_id,
         L.marker(
           [bus.latitude, bus.longitude],
-          { icon: createArrowIcon(Math.random() * 360) }
+          { icon: createArrowIcon(heading) }
         ).addTo(map)
       );
     } else {
-      markers.get(bus.bus_id).setLatLng([bus.latitude, bus.longitude]);
+      markers.get(bus.bus_id)
+        .setLatLng([bus.latitude, bus.longitude])
+        .setIcon(createArrowIcon(heading));
     }
 
     markers.get(bus.bus_id).bindPopup(`
       <b>${bus.bus_id}</b><br>
-      Last update: ${Math.floor(age / 1000)} sec ago
+      Heading: ${Math.round(heading)}°
     `);
-  });
-
-  // Cleanup markers not in backend anymore
-  markers.forEach((marker, busId) => {
-    if (!activeBusIds.has(busId)) {
-      map.removeLayer(marker);
-      markers.delete(busId);
-    }
   });
 }
 
