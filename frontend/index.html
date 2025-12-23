@@ -16,17 +16,35 @@ html, body, #map {
 
 #map { position: absolute; inset: 0; }
 
+/* Top bar */
 .topbar {
   position: absolute;
   top: 12px; left: 12px;
   z-index: 1000;
   background: white;
-  padding: 8px 12px;
+  padding: 10px;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+/* Simulation panel */
+.sim-panel {
+  position: absolute;
+  bottom: 12px; left: 12px;
+  z-index: 1000;
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  font-size: 13px;
+}
+
+.sim-panel button, select {
+  margin-top: 6px;
+  width: 100%;
 }
 
 .legend {
@@ -51,12 +69,22 @@ html, body, #map {
   <select id="busSelect">
     <option value="ALL">All Buses</option>
   </select>
-  <button id="simBtn">Start Simulator</button>
 </div>
 
 <div class="legend">
-  <b>Direction</b><br>
-  Arrow shows real movement direction
+  <b>Status</b><br>
+  🟢 Online<br>
+  🟠 Delayed<br>
+  🔴 Offline
+</div>
+
+<!-- 🔥 Simulation Control Panel -->
+<div class="sim-panel">
+  <b>🧪 Simulation</b><br>
+
+  <button id="addBusBtn">➕ Add Bus</button>
+  <button id="removeBusBtn">➖ Remove Bus</button>
+  <button id="toggleSimBtn">▶ Start Simulation</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -71,45 +99,7 @@ const API_BASE =
 
 const API_PATH = "/api/bus_locations";
 
-/* Store previous positions */
-const lastPositions = new Map();
-
-/* Calculate bearing between two GPS points */
-function calculateBearing(lat1, lon1, lat2, lon2) {
-  const toRad = deg => deg * Math.PI / 180;
-  const toDeg = rad => rad * 180 / Math.PI;
-
-  const φ1 = toRad(lat1);
-  const φ2 = toRad(lat2);
-  const Δλ = toRad(lon2 - lon1);
-
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x =
-    Math.cos(φ1) * Math.sin(φ2) -
-    Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-
-  let θ = Math.atan2(y, x);
-  θ = (toDeg(θ) + 360) % 360; // normalize
-
-  return θ;
-}
-
-/* SVG arrow icon */
-function createArrowIcon(angle = 0) {
-  return L.divIcon({
-    className: "",
-    html: `
-      <svg width="28" height="28" viewBox="0 0 24 24"
-        style="transform: rotate(${angle}deg); transition: transform 0.3s linear;"
-        fill="#1e88e5">
-        <path d="M12 2L19 21L12 17L5 21Z"/>
-      </svg>
-    `,
-    iconSize: [28,28],
-    iconAnchor: [14,14]
-  });
-}
-
+/* ---------------- MAP ---------------- */
 const map = L.map("map", {
   center: [12.9755, 79.1650],
   zoom: 13
@@ -120,9 +110,46 @@ L.tileLayer(
   { attribution: "© OpenStreetMap, © CARTO" }
 ).addTo(map);
 
+/* ---------------- STATE ---------------- */
 const markers = new Map();
+const lastPositions = new Map();
+const simulators = new Map();
+
 const busSelect = document.getElementById("busSelect");
 
+/* ---------------- HELPERS ---------------- */
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const toRad = d => d * Math.PI / 180;
+  const toDeg = r => r * 180 / Math.PI;
+
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δλ = toRad(lon2 - lon1);
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x =
+    Math.cos(φ1) * Math.sin(φ2) -
+    Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+function createArrowIcon(angle = 0) {
+  return L.divIcon({
+    className: "",
+    html: `
+      <svg width="28" height="28" viewBox="0 0 24 24"
+        style="transform: rotate(${angle}deg); transition:0.3s;"
+        fill="#1e88e5">
+        <path d="M12 2L19 21L12 17L5 21Z"/>
+      </svg>
+    `,
+    iconSize: [28,28],
+    iconAnchor: [14,14]
+  });
+}
+
+/* ---------------- FETCH & RENDER ---------------- */
 async function fetchData() {
   const res = await fetch(API_BASE + API_PATH);
   const data = await res.json();
@@ -142,13 +169,9 @@ async function fetchData() {
     if (selected !== "ALL" && bus.bus_id !== selected) return;
 
     let heading = 0;
-
     if (lastPositions.has(bus.bus_id)) {
-      const prev = lastPositions.get(bus.bus_id);
-      heading = calculateBearing(
-        prev.lat, prev.lon,
-        bus.latitude, bus.longitude
-      );
+      const p = lastPositions.get(bus.bus_id);
+      heading = calculateBearing(p.lat, p.lon, bus.latitude, bus.longitude);
     }
 
     lastPositions.set(bus.bus_id, {
@@ -180,30 +203,48 @@ async function fetchData() {
 setInterval(fetchData, 3000);
 fetchData();
 
-/* Simulator */
-let sim = null;
-document.getElementById("simBtn").onclick = () => {
-  if (sim) {
-    clearInterval(sim);
-    sim = null;
-    simBtn.textContent = "Start Simulator";
-    return;
-  }
+/* ---------------- SIMULATION PANEL ---------------- */
+let simCounter = 1;
+let simRunning = false;
 
-  simBtn.textContent = "Stop Simulator";
+document.getElementById("addBusBtn").onclick = () => {
+  const id = `SIM-${simCounter++}`;
 
-  sim = setInterval(() => {
+  const timer = setInterval(() => {
     fetch(API_BASE + "/api/bus/update", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({
-        bus_id: "SIM-01",
-        latitude: 12.9716 + (Math.random()-0.5)*0.01,
-        longitude: 79.1588 + (Math.random()-0.5)*0.01,
+        bus_id: id,
+        latitude: 12.9755 + (Math.random()-0.5)*0.01,
+        longitude: 79.1650 + (Math.random()-0.5)*0.01,
         passenger_count: Math.floor(Math.random()*40)
       })
     });
   }, 2000);
+
+  simulators.set(id, timer);
+};
+
+document.getElementById("removeBusBtn").onclick = () => {
+  const id = busSelect.value;
+  if (id === "ALL") return;
+
+  if (simulators.has(id)) {
+    clearInterval(simulators.get(id));
+    simulators.delete(id);
+  }
+};
+
+document.getElementById("toggleSimBtn").onclick = () => {
+  simRunning = !simRunning;
+  document.getElementById("toggleSimBtn").textContent =
+    simRunning ? "⏸ Stop Simulation" : "▶ Start Simulation";
+
+  simulators.forEach((timer, id) => {
+    if (simRunning) return;
+    clearInterval(timer);
+  });
 };
 
 })();
