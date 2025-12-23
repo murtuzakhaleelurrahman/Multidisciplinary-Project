@@ -41,13 +41,6 @@ html, body, #map {
   align-items: center;
 }
 
-.btn {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-}
-
 .legend {
   position: absolute;
   right: 12px;
@@ -68,14 +61,17 @@ html, body, #map {
 
 <div class="topbar">
   <b>🚌 Real-Time Bus Tracker</b>
-  <button class="btn" id="simBtn">Start Simulator</button>
+  <button id="simBtn">Start Simulator</button>
 </div>
 
 <div class="legend">
-  <b>Legend</b><br>
-  🟢 Online (&lt;10s)<br>
-  🟠 Delayed (10–30s)<br>
-  🔴 Offline (&gt;30s)
+  <b>Status</b><br>
+  🟢 Online<br>
+  🟠 Delayed<br>
+  🔴 Offline<br>
+  <hr>
+  <b>Occupancy</b><br>
+  Blue bar = % filled
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -89,6 +85,7 @@ const API_BASE =
     : "https://bus-tracker-backend-sv2m.onrender.com";
 
 const API_PATH = "/api/bus_locations";
+const MAX_CAPACITY = 40;
 
 const map = L.map("map", {
   center: [12.9716, 79.1588],
@@ -102,20 +99,32 @@ L.tileLayer(
 
 const markers = new Map();
 
-/* Passenger color */
-function colorFor(pax) {
-  if (pax < 10) return "green";
-  if (pax < 30) return "orange";
-  return "red";
-}
-
-/* 🟢🟠🔴 Status logic */
+/* Status logic */
 function busStatus(lastUpdated) {
   const diff = Date.now() - new Date(lastUpdated).getTime();
+  if (diff < 10000) return { text: "Online", dot: "🟢" };
+  if (diff < 30000) return { text: "Delayed", dot: "🟠" };
+  return { text: "Offline", dot: "🔴" };
+}
 
-  if (diff < 10000) return { text: "🟢 Online", color: "green" };
-  if (diff < 30000) return { text: "🟠 Delayed", color: "orange" };
-  return { text: "🔴 Offline", color: "red" };
+/* ✅ SVG Arrow Icon (NO white box) */
+function createArrowIcon(angle = 0) {
+  return L.divIcon({
+    className: "", // 🔥 removes default white box
+    html: `
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        style="transform: rotate(${angle}deg);"
+        fill="#1e88e5"
+      >
+        <path d="M12 2L19 21L12 17L5 21Z"/>
+      </svg>
+    `,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
+  });
 }
 
 async function fetchData() {
@@ -126,40 +135,46 @@ async function fetchData() {
     document.getElementById("loading").style.display = "none";
 
     data.forEach(bus => {
-      const color = colorFor(bus.passenger_count);
       const status = busStatus(bus.last_updated);
       const time = new Date(bus.last_updated).toLocaleTimeString();
 
-      const icon = L.divIcon({
-        html: `<div style="
-          font-size:24px;
-          border:3px solid ${color};
-          border-radius:50%;
-          padding:4px;
-        ">🚌</div>`,
-        iconSize: [36,36],
-        iconAnchor: [18,18]
-      });
+      const percent = Math.min(
+        Math.round((bus.passenger_count / MAX_CAPACITY) * 100),
+        100
+      );
 
-      if (markers.has(bus.bus_id)) {
+      const occupancyBar = `
+        <div style="background:#ddd; border-radius:6px; height:8px; margin:6px 0;">
+          <div style="
+            width:${percent}%;
+            height:100%;
+            background:#1e88e5;
+            border-radius:6px;">
+          </div>
+        </div>
+        <small>${percent}% occupied</small>
+      `;
+
+      if (!markers.has(bus.bus_id)) {
+        const marker = L.marker(
+          [bus.latitude, bus.longitude],
+          { icon: createArrowIcon(Math.random() * 360) }
+        ).addTo(map);
+
+        markers.set(bus.bus_id, marker);
+      } else {
         markers.get(bus.bus_id).setLatLng([bus.latitude, bus.longitude]);
-      } else {
-        const m = L.marker([bus.latitude, bus.longitude], { icon }).addTo(map);
-        markers.set(bus.bus_id, m);
       }
 
-      if (status.text.includes("Offline")) {
-        markers.get(bus.bus_id).setOpacity(0.4);
-      } else {
-        markers.get(bus.bus_id).setOpacity(1);
-      }
+      markers.get(bus.bus_id).setOpacity(
+        status.text === "Offline" ? 0.4 : 1
+      );
 
       markers.get(bus.bus_id).bindPopup(`
         <b>${bus.bus_id}</b><br>
+        ${status.dot} ${status.text}<br>
         Passengers: ${bus.passenger_count}<br>
-        Status: <span style="color:${status.color}; font-weight:bold;">
-          ${status.text}
-        </span><br>
+        ${occupancyBar}
         <small>🕒 ${time}</small>
       `);
     });
