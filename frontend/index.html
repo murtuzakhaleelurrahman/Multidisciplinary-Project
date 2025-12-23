@@ -60,8 +60,7 @@ html, body, #map {
   🟠 Delayed<br>
   🔴 Offline<br>
   <hr>
-  <b>ETA</b><br>
-  Minutes to next stop
+  Auto-remove after 2 minutes
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -75,14 +74,7 @@ const API_BASE =
     : "https://bus-tracker-backend-sv2m.onrender.com";
 
 const API_PATH = "/api/bus_locations";
-const AVG_SPEED_KMH = 25;
-
-/* ROUTE STOPS */
-const BUS_STOPS = [
-  { name: "Stop A", coord: [12.9716, 79.1588] },
-  { name: "Stop B", coord: [12.9755, 79.1650] },
-  { name: "Stop C", coord: [12.9810, 79.1710] }
-];
+const OFFLINE_REMOVE_MS = 120000; // 🔥 2 minutes
 
 const map = L.map("map", {
   center: [12.9755, 79.1650],
@@ -94,60 +86,15 @@ L.tileLayer(
   { attribution: "© OpenStreetMap, © CARTO" }
 ).addTo(map);
 
-BUS_STOPS.forEach(stop => {
-  L.circleMarker(stop.coord, {
-    radius: 6,
-    color: "#1e88e5",
-    fillColor: "#fff",
-    fillOpacity: 1,
-    weight: 2
-  }).addTo(map).bindPopup(`<b>${stop.name}</b>`);
-});
-
 const markers = new Map();
 const busSelect = document.getElementById("busSelect");
 
-/* Distance (Haversine) */
-function distanceKm(a, b) {
-  const R = 6371;
-  const dLat = (b[0] - a[0]) * Math.PI / 180;
-  const dLon = (b[1] - a[1]) * Math.PI / 180;
-  const lat1 = a[0] * Math.PI / 180;
-  const lat2 = b[0] * Math.PI / 180;
-
-  const x =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) *
-    Math.sin(dLon / 2) ** 2;
-
-  return 2 * R * Math.asin(Math.sqrt(x));
+/* Status helper */
+function timeSince(lastUpdated) {
+  return Date.now() - new Date(lastUpdated).getTime();
 }
 
-/* Find nearest upcoming stop */
-function nearestStop(lat, lon) {
-  let nearest = null;
-  let minDist = Infinity;
-
-  BUS_STOPS.forEach(stop => {
-    const d = distanceKm([lat, lon], stop.coord);
-    if (d < minDist) {
-      minDist = d;
-      nearest = stop;
-    }
-  });
-
-  return { stop: nearest, distance: minDist };
-}
-
-/* Status */
-function busStatus(lastUpdated) {
-  const diff = Date.now() - new Date(lastUpdated).getTime();
-  if (diff < 10000) return "🟢 Online";
-  if (diff < 30000) return "🟠 Delayed";
-  return "🔴 Offline";
-}
-
-/* SVG marker */
+/* SVG directional icon */
 function createArrowIcon(angle = 0) {
   return L.divIcon({
     className: "",
@@ -167,29 +114,44 @@ async function fetchData() {
   const res = await fetch(API_BASE + API_PATH);
   const data = await res.json();
 
+  const activeBusIds = new Set();
+
   data.forEach(bus => {
+    const age = timeSince(bus.last_updated);
+
+    // 🚨 Auto-remove if offline too long
+    if (age > OFFLINE_REMOVE_MS) {
+      if (markers.has(bus.bus_id)) {
+        map.removeLayer(markers.get(bus.bus_id));
+        markers.delete(bus.bus_id);
+      }
+
+      [...busSelect.options].forEach(opt => {
+        if (opt.value === bus.bus_id) opt.remove();
+      });
+
+      return;
+    }
+
+    activeBusIds.add(bus.bus_id);
+
+    // Add to dropdown if missing
     if (![...busSelect.options].some(o => o.value === bus.bus_id)) {
       const opt = document.createElement("option");
       opt.value = bus.bus_id;
       opt.textContent = bus.bus_id;
       busSelect.appendChild(opt);
     }
-  });
 
-  const selected = busSelect.value;
-
-  data.forEach(bus => {
+    const selected = busSelect.value;
     if (selected !== "ALL" && bus.bus_id !== selected) return;
-
-    const { stop, distance } = nearestStop(bus.latitude, bus.longitude);
-    const etaMinutes = Math.round((distance / AVG_SPEED_KMH) * 60);
 
     if (!markers.has(bus.bus_id)) {
       markers.set(
         bus.bus_id,
         L.marker(
           [bus.latitude, bus.longitude],
-          { icon: createArrowIcon(Math.random()*360) }
+          { icon: createArrowIcon(Math.random() * 360) }
         ).addTo(map)
       );
     } else {
@@ -198,10 +160,16 @@ async function fetchData() {
 
     markers.get(bus.bus_id).bindPopup(`
       <b>${bus.bus_id}</b><br>
-      ${busStatus(bus.last_updated)}<br>
-      Next stop: <b>${stop.name}</b><br>
-      ETA: <b>${etaMinutes} min</b>
+      Last update: ${Math.floor(age / 1000)} sec ago
     `);
+  });
+
+  // Cleanup markers not in backend anymore
+  markers.forEach((marker, busId) => {
+    if (!activeBusIds.has(busId)) {
+      map.removeLayer(marker);
+      markers.delete(busId);
+    }
   });
 }
 
