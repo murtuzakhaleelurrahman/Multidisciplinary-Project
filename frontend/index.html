@@ -16,18 +16,6 @@ html, body, #map {
 
 #map { position: absolute; inset: 0; }
 
-#loading {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 0 15px rgba(0,0,0,0.25);
-  z-index: 2000;
-  font-weight: bold;
-}
-
 .topbar {
   position: absolute;
   top: 12px; left: 12px;
@@ -56,7 +44,6 @@ html, body, #map {
 
 <body>
 
-<div id="loading">📡 Connecting to server…</div>
 <div id="map"></div>
 
 <div class="topbar">
@@ -73,9 +60,8 @@ html, body, #map {
   🟠 Delayed<br>
   🔴 Offline<br>
   <hr>
-  <b>Route</b><br>
-  Blue line = Bus route<br>
-  ⭕ = Bus stops
+  <b>ETA</b><br>
+  Minutes to next stop
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -89,17 +75,9 @@ const API_BASE =
     : "https://bus-tracker-backend-sv2m.onrender.com";
 
 const API_PATH = "/api/bus_locations";
-const MAX_CAPACITY = 40;
+const AVG_SPEED_KMH = 25;
 
-/* 🔵 ROUTE DATA (STATIC) */
-const ROUTE_COORDS = [
-  [12.9716, 79.1588],
-  [12.9730, 79.1620],
-  [12.9755, 79.1650],
-  [12.9780, 79.1680],
-  [12.9810, 79.1710]
-];
-
+/* ROUTE STOPS */
 const BUS_STOPS = [
   { name: "Stop A", coord: [12.9716, 79.1588] },
   { name: "Stop B", coord: [12.9755, 79.1650] },
@@ -116,14 +94,6 @@ L.tileLayer(
   { attribution: "© OpenStreetMap, © CARTO" }
 ).addTo(map);
 
-/* Draw route polyline */
-L.polyline(ROUTE_COORDS, {
-  color: "#1e88e5",
-  weight: 5,
-  opacity: 0.7
-}).addTo(map);
-
-/* Draw bus stops */
 BUS_STOPS.forEach(stop => {
   L.circleMarker(stop.coord, {
     radius: 6,
@@ -137,15 +107,47 @@ BUS_STOPS.forEach(stop => {
 const markers = new Map();
 const busSelect = document.getElementById("busSelect");
 
-/* Status logic */
-function busStatus(lastUpdated) {
-  const diff = Date.now() - new Date(lastUpdated).getTime();
-  if (diff < 10000) return { text: "Online", dot: "🟢" };
-  if (diff < 30000) return { text: "Delayed", dot: "🟠" };
-  return { text: "Offline", dot: "🔴" };
+/* Distance (Haversine) */
+function distanceKm(a, b) {
+  const R = 6371;
+  const dLat = (b[0] - a[0]) * Math.PI / 180;
+  const dLon = (b[1] - a[1]) * Math.PI / 180;
+  const lat1 = a[0] * Math.PI / 180;
+  const lat2 = b[0] * Math.PI / 180;
+
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) *
+    Math.sin(dLon / 2) ** 2;
+
+  return 2 * R * Math.asin(Math.sqrt(x));
 }
 
-/* Directional SVG marker */
+/* Find nearest upcoming stop */
+function nearestStop(lat, lon) {
+  let nearest = null;
+  let minDist = Infinity;
+
+  BUS_STOPS.forEach(stop => {
+    const d = distanceKm([lat, lon], stop.coord);
+    if (d < minDist) {
+      minDist = d;
+      nearest = stop;
+    }
+  });
+
+  return { stop: nearest, distance: minDist };
+}
+
+/* Status */
+function busStatus(lastUpdated) {
+  const diff = Date.now() - new Date(lastUpdated).getTime();
+  if (diff < 10000) return "🟢 Online";
+  if (diff < 30000) return "🟠 Delayed";
+  return "🔴 Offline";
+}
+
+/* SVG marker */
 function createArrowIcon(angle = 0) {
   return L.divIcon({
     className: "",
@@ -162,59 +164,45 @@ function createArrowIcon(angle = 0) {
 }
 
 async function fetchData() {
-  try {
-    const res = await fetch(API_BASE + API_PATH);
-    const data = await res.json();
+  const res = await fetch(API_BASE + API_PATH);
+  const data = await res.json();
 
-    document.getElementById("loading").style.display = "none";
+  data.forEach(bus => {
+    if (![...busSelect.options].some(o => o.value === bus.bus_id)) {
+      const opt = document.createElement("option");
+      opt.value = bus.bus_id;
+      opt.textContent = bus.bus_id;
+      busSelect.appendChild(opt);
+    }
+  });
 
-    data.forEach(bus => {
-      if (![...busSelect.options].some(o => o.value === bus.bus_id)) {
-        const opt = document.createElement("option");
-        opt.value = bus.bus_id;
-        opt.textContent = bus.bus_id;
-        busSelect.appendChild(opt);
-      }
-    });
+  const selected = busSelect.value;
 
-    const selected = busSelect.value;
+  data.forEach(bus => {
+    if (selected !== "ALL" && bus.bus_id !== selected) return;
 
-    data.forEach(bus => {
-      if (selected !== "ALL" && bus.bus_id !== selected) {
-        if (markers.has(bus.bus_id)) markers.get(bus.bus_id).setOpacity(0);
-        return;
-      }
+    const { stop, distance } = nearestStop(bus.latitude, bus.longitude);
+    const etaMinutes = Math.round((distance / AVG_SPEED_KMH) * 60);
 
-      const status = busStatus(bus.last_updated);
-      const time = new Date(bus.last_updated).toLocaleTimeString();
-
-      if (!markers.has(bus.bus_id)) {
-        markers.set(
-          bus.bus_id,
-          L.marker(
-            [bus.latitude, bus.longitude],
-            { icon: createArrowIcon(Math.random()*360) }
-          ).addTo(map)
-        );
-      } else {
-        markers.get(bus.bus_id).setLatLng([bus.latitude, bus.longitude]);
-      }
-
-      markers.get(bus.bus_id).setOpacity(
-        status.text === "Offline" ? 0.4 : 1
+    if (!markers.has(bus.bus_id)) {
+      markers.set(
+        bus.bus_id,
+        L.marker(
+          [bus.latitude, bus.longitude],
+          { icon: createArrowIcon(Math.random()*360) }
+        ).addTo(map)
       );
+    } else {
+      markers.get(bus.bus_id).setLatLng([bus.latitude, bus.longitude]);
+    }
 
-      markers.get(bus.bus_id).bindPopup(`
-        <b>${bus.bus_id}</b><br>
-        ${status.dot} ${status.text}<br>
-        Passengers: ${bus.passenger_count}<br>
-        <small>🕒 ${time}</small>
-      `);
-    });
-
-  } catch (e) {
-    console.error(e);
-  }
+    markers.get(bus.bus_id).bindPopup(`
+      <b>${bus.bus_id}</b><br>
+      ${busStatus(bus.last_updated)}<br>
+      Next stop: <b>${stop.name}</b><br>
+      ETA: <b>${etaMinutes} min</b>
+    `);
+  });
 }
 
 setInterval(fetchData, 3000);
