@@ -2,253 +2,310 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Real-Time Bus Tracker</title>
+<title>Smart Transit Mark II</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
-html, body, #map {
-  height: 100%;
-  margin: 0;
-  font-family: system-ui, Arial;
-}
+  html, body, #map { height: 100%; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #222; }
+  
+  /* --- HUD PANELS --- */
+  .hud-panel {
+    position: absolute; z-index: 1000; background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(8px); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    padding: 12px; transition: all 0.3s ease;
+  }
 
-#map { position: absolute; inset: 0; }
+  /* Top Bar */
+  .top-bar { top: 15px; left: 15px; display: flex; align-items: center; gap: 15px; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #999; box-shadow: 0 0 5px currentColor; transition: 0.3s; }
+  
+  /* Bottom Status Footer (Persistent) */
+  .status-bar { 
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 1000;
+    background: #1a1a1a; color: #fff; padding: 8px 20px;
+    font-size: 13px; display: flex; justify-content: space-between; align-items: center;
+    border-top: 1px solid #333;
+  }
 
-/* Top bar */
-.topbar {
-  position: absolute;
-  top: 12px; left: 12px;
-  z-index: 1000;
-  background: white;
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
+  /* Control Panel */
+  .controls { bottom: 50px; left: 15px; width: 200px; }
+  .btn {
+    width: 100%; padding: 8px; margin-top: 6px; border: none; border-radius: 4px;
+    font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 13px;
+  }
+  .btn-blue { background: #3498db; color: white; }
+  .btn-blue:hover { background: #2980b9; }
+  .btn-red { background: #e74c3c; color: white; }
+  .btn-red:hover { background: #c0392b; }
 
-/* Simulation panel */
-.sim-panel {
-  position: absolute;
-  bottom: 12px; left: 12px;
-  z-index: 1000;
-  background: white;
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  font-size: 13px;
-}
-
-.sim-panel button, select {
-  margin-top: 6px;
-  width: 100%;
-}
-
-.legend {
-  position: absolute;
-  right: 12px;
-  top: 12px;
-  background: white;
-  padding: 10px;
-  border-radius: 8px;
-  z-index: 1000;
-  font-size: 13px;
-}
+  /* Legend */
+  .legend { top: 15px; right: 15px; font-size: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .color-box { width: 12px; height: 12px; border-radius: 2px; }
 </style>
 </head>
-
 <body>
 
 <div id="map"></div>
 
-<div class="topbar">
-  <b>🚌 Bus Tracker</b>
-  <select id="busSelect">
-    <option value="ALL">All Buses</option>
-  </select>
+<div class="hud-panel top-bar">
+  <div id="connectionDot" class="status-dot"></div>
+  <div style="font-weight: 700; color:#333;">🚌 Transit Command</div>
+  <div style="border-left: 1px solid #ccc; padding-left: 10px; font-size: 13px; color:#555;">
+    Active Fleet: <b id="fleetCount">0</b>
+  </div>
 </div>
 
-<div class="legend">
-  <b>Status</b><br>
-  🟢 Online<br>
-  🟠 Delayed<br>
-  🔴 Offline
+<div class="hud-panel legend">
+  <div style="font-weight:bold; margin-bottom:5px; color:#444;">Occupancy</div>
+  <div class="legend-item"><div class="color-box" style="background:#2ecc71"></div> Low (&lt;10)</div>
+  <div class="legend-item"><div class="color-box" style="background:#f39c12"></div> Med (10-29)</div>
+  <div class="legend-item"><div class="color-box" style="background:#e74c3c"></div> High (&ge;30)</div>
+  <hr style="border:0; border-top:1px solid #eee; margin:5px 0;">
+  <div style="font-weight:bold; margin-bottom:5px; color:#444;">Signal Health</div>
+  <div class="legend-item"><span style="opacity:1">🚌</span> Live (&lt;10s)</div>
+  <div class="legend-item"><span style="opacity:0.5">🚌</span> Stale (&gt;10s)</div>
 </div>
 
-<!-- 🔥 Simulation Control Panel -->
-<div class="sim-panel">
-  <b>🧪 Simulation</b><br>
+<div class="hud-panel controls">
+  <div style="font-size:11px; font-weight:bold; color:#888; letter-spacing:1px; margin-bottom:5px;">SIMULATION</div>
+  <button id="addBus" class="btn btn-blue">➕ Add Bus</button>
+  <button id="nukeSystem" class="btn btn-red">☢️ System Reset</button>
+</div>
 
-  <button id="addBusBtn">➕ Add Bus</button>
-  <button id="removeBusBtn">➖ Remove Bus</button>
-  <button id="toggleSimBtn">▶ Start Simulation</button>
+<div class="status-bar" id="statusBar">
+  <span id="systemMsg">Initializing System...</span>
+  <span style="font-family: monospace; color:#888;" id="latencyMsg">-- ms</span>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <script>
 (() => {
-
-const API_BASE =
-  location.hostname === "localhost"
-    ? "http://localhost:3000"
+  /* --- 1. CONFIGURATION --- */
+  const API_BASE = location.hostname.includes("localhost") 
+    ? "http://localhost:3000" 
     : "https://bus-tracker-backend-sv2m.onrender.com";
+  
+  const THRESHOLDS = {
+    STALE_MS: 10000,   // 10s: Bus fades (Signal Weak)
+    OFFLINE_MS: 30000, // 30s: Bus removed (Signal Lost)
+    POLL_MS: 2000      // 2s: Refresh Rate
+  };
 
-const API_PATH = "/api/bus_locations";
+  /* --- 2. STATE MANAGEMENT --- */
+  const state = {
+    buses: new Map(), // Stores: { marker, pos, lastSeen, heading }
+    connection: false,
+    simCounter: 1
+  };
 
-/* ---------------- MAP ---------------- */
-const map = L.map("map", {
-  center: [12.9755, 79.1650],
-  zoom: 13
-});
+  /* --- 3. MAP SETUP --- */
+  const map = L.map('map', { center: [12.9755, 79.1650], zoom: 14, zoomControl: false });
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© CARTO'
+  }).addTo(map);
 
-L.tileLayer(
-  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-  { attribution: "© OpenStreetMap, © CARTO" }
-).addTo(map);
-
-/* ---------------- STATE ---------------- */
-const markers = new Map();
-const lastPositions = new Map();
-const simulators = new Map();
-
-const busSelect = document.getElementById("busSelect");
-
-/* ---------------- HELPERS ---------------- */
-function calculateBearing(lat1, lon1, lat2, lon2) {
-  const toRad = d => d * Math.PI / 180;
-  const toDeg = r => r * 180 / Math.PI;
-
-  const φ1 = toRad(lat1);
-  const φ2 = toRad(lat2);
-  const Δλ = toRad(lon2 - lon1);
-
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x =
-    Math.cos(φ1) * Math.sin(φ2) -
-    Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-
-function createArrowIcon(angle = 0) {
-  return L.divIcon({
-    className: "",
-    html: `
-      <svg width="28" height="28" viewBox="0 0 24 24"
-        style="transform: rotate(${angle}deg); transition:0.3s;"
-        fill="#1e88e5">
-        <path d="M12 2L19 21L12 17L5 21Z"/>
-      </svg>
-    `,
-    iconSize: [28,28],
-    iconAnchor: [14,14]
-  });
-}
-
-/* ---------------- FETCH & RENDER ---------------- */
-async function fetchData() {
-  const res = await fetch(API_BASE + API_PATH);
-  const data = await res.json();
-
-  data.forEach(bus => {
-    if (![...busSelect.options].some(o => o.value === bus.bus_id)) {
-      const opt = document.createElement("option");
-      opt.value = bus.bus_id;
-      opt.textContent = bus.bus_id;
-      busSelect.appendChild(opt);
-    }
-  });
-
-  const selected = busSelect.value;
-
-  data.forEach(bus => {
-    if (selected !== "ALL" && bus.bus_id !== selected) return;
-
-    let heading = 0;
-    if (lastPositions.has(bus.bus_id)) {
-      const p = lastPositions.get(bus.bus_id);
-      heading = calculateBearing(p.lat, p.lon, bus.latitude, bus.longitude);
-    }
-
-    lastPositions.set(bus.bus_id, {
-      lat: bus.latitude,
-      lon: bus.longitude
-    });
-
-    if (!markers.has(bus.bus_id)) {
-      markers.set(
-        bus.bus_id,
-        L.marker(
-          [bus.latitude, bus.longitude],
-          { icon: createArrowIcon(heading) }
-        ).addTo(map)
-      );
-    } else {
-      markers.get(bus.bus_id)
-        .setLatLng([bus.latitude, bus.longitude])
-        .setIcon(createArrowIcon(heading));
-    }
-
-    markers.get(bus.bus_id).bindPopup(`
-      <b>${bus.bus_id}</b><br>
-      Heading: ${Math.round(heading)}°
-    `);
-  });
-}
-
-setInterval(fetchData, 3000);
-fetchData();
-
-/* ---------------- SIMULATION PANEL ---------------- */
-let simCounter = 1;
-let simRunning = false;
-
-document.getElementById("addBusBtn").onclick = () => {
-  const id = `SIM-${simCounter++}`;
-
-  const timer = setInterval(() => {
-    fetch(API_BASE + "/api/bus/update", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        bus_id: id,
-        latitude: 12.9755 + (Math.random()-0.5)*0.01,
-        longitude: 79.1650 + (Math.random()-0.5)*0.01,
-        passenger_count: Math.floor(Math.random()*40)
-      })
-    });
-  }, 2000);
-
-  simulators.set(id, timer);
-};
-
-document.getElementById("removeBusBtn").onclick = () => {
-  const id = busSelect.value;
-  if (id === "ALL") return;
-
-  if (simulators.has(id)) {
-    clearInterval(simulators.get(id));
-    simulators.delete(id);
+  /* --- 4. VISUAL HELPERS --- */
+  function getOccupancyColor(pax) {
+    if (pax < 10) return "#2ecc71"; // Green
+    if (pax < 30) return "#f39c12"; // Orange
+    return "#e74c3c";               // Red
   }
-};
 
-document.getElementById("toggleSimBtn").onclick = () => {
-  simRunning = !simRunning;
-  document.getElementById("toggleSimBtn").textContent =
-    simRunning ? "⏸ Stop Simulation" : "▶ Start Simulation";
+  function createBusIcon(heading, color, opacity) {
+    return L.divIcon({
+      className: 'bus-marker',
+      html: `
+        <div style="
+          transform: rotate(${heading}deg); 
+          transition: transform 0.5s ease;
+          opacity: ${opacity};
+        ">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L19 21L12 17L5 21Z" fill="white" stroke="${color}" stroke-width="2"/>
+            <circle cx="12" cy="12" r="3" fill="${color}"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
+    });
+  }
 
-  simulators.forEach((timer, id) => {
-    if (simRunning) return;
-    clearInterval(timer);
-  });
-};
+  function getHeading(prev, curr) {
+    if (!prev) return 0;
+    const toRad = d => d * Math.PI / 180;
+    const dLon = toRad(curr.lon - prev.lon);
+    const y = Math.sin(dLon) * Math.cos(toRad(curr.lat));
+    const x = Math.cos(toRad(prev.lat)) * Math.sin(toRad(curr.lat)) - 
+              Math.sin(toRad(prev.lat)) * Math.cos(toRad(curr.lat)) * Math.cos(dLon);
+    return (toRad(Math.atan2(y, x)) * 180 / Math.PI + 360) % 360;
+  }
+
+  /* --- 5. CORE LOGIC LOOP --- */
+  async function syncFleet() {
+    const start = Date.now();
+    try {
+      const res = await fetch(`${API_BASE}/api/bus_locations`);
+      const data = await res.json();
+      
+      // Update Latency
+      const latency = Date.now() - start;
+      document.getElementById('latencyMsg').textContent = `${latency} ms`;
+      
+      handleConnectionSuccess(true);
+      processFleetData(data);
+    } catch (e) {
+      handleConnectionSuccess(false);
+    }
+    
+    // Run Housekeeping
+    pruneFleet();
+  }
+
+  function processFleetData(serverBuses) {
+    serverBuses.forEach(busData => {
+      const { bus_id, latitude, longitude, passenger_count, last_updated } = busData;
+      
+      // ✅ PATCH 1: Zero-Coordinate Protection
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') return;
+      if (latitude === 0 && longitude === 0) return;
+
+      // 1. Calculate Age
+      const age = Date.now() - new Date(last_updated).getTime();
+      
+      // 2. Determine Visual State
+      const isStale = age > THRESHOLDS.STALE_MS;
+      const opacity = isStale ? 0.5 : 1.0;
+      const color = getOccupancyColor(passenger_count);
+      
+      let entity = state.buses.get(bus_id);
+      let heading = 0;
+
+      if (entity) {
+        // ✅ PATCH 2: Jitter Fix (Only rotate if moved > 5 meters)
+        const dist = Math.sqrt(Math.pow(latitude - entity.pos.lat, 2) + Math.pow(longitude - entity.pos.lon, 2));
+        if (dist > 0.00005) { 
+          heading = getHeading(entity.pos, { lat: latitude, lon: longitude });
+        } else {
+          heading = entity.heading || 0; // Maintain previous heading
+        }
+
+        // Update Marker
+        entity.marker.setLatLng([latitude, longitude]);
+        entity.marker.setIcon(createBusIcon(heading, color, opacity));
+        
+        // Update Popup
+        const statusText = isStale ? "<b style='color:#f39c12'>⚠ Signal Weak</b>" : "<b style='color:#2ecc71'>● Live</b>";
+        entity.marker.setPopupContent(`
+          <div style="text-align:center">
+            <b>${bus_id}</b><br>
+            Pax: <b>${passenger_count}</b><br>
+            ${statusText}
+          </div>
+        `);
+
+        // Update State
+        entity.pos = { lat: latitude, lon: longitude };
+        entity.heading = heading;
+        entity.lastSeen = Date.now();
+      } else {
+        // Create New Bus
+        const marker = L.marker([latitude, longitude], { 
+          icon: createBusIcon(0, color, opacity) 
+        }).bindPopup(`<b>${bus_id}</b>`).addTo(map);
+
+        state.buses.set(bus_id, {
+          marker,
+          pos: { lat: latitude, lon: longitude },
+          heading: 0,
+          lastSeen: Date.now()
+        });
+      }
+    });
+  }
+
+  /* --- 6. HOUSEKEEPING (Pruning) --- */
+  function pruneFleet() {
+    let activeCount = 0;
+    const now = Date.now();
+
+    state.buses.forEach((entity, id) => {
+      // Remove if offline > 30s (Frontend Cleanup)
+      if (now - entity.lastSeen > THRESHOLDS.OFFLINE_MS) {
+        map.removeLayer(entity.marker);
+        state.buses.delete(id);
+      } else {
+        activeCount++;
+      }
+    });
+
+    document.getElementById('fleetCount').textContent = activeCount;
+    
+    // Update Status Bar
+    const sysMsg = document.getElementById('systemMsg');
+    if (state.connection) {
+      if (activeCount === 0) {
+        sysMsg.textContent = "🟢 System Online | Waiting for Fleet...";
+        sysMsg.style.color = "#f39c12"; // Orange
+      } else {
+        sysMsg.textContent = "🟢 Tracking Active Fleet";
+        sysMsg.style.color = "#2ecc71"; // Green
+      }
+    }
+  }
+
+  function handleConnectionSuccess(isOnline) {
+    state.connection = isOnline;
+    const dot = document.getElementById('connectionDot');
+    const sysMsg = document.getElementById('systemMsg');
+    
+    if (isOnline) {
+      dot.style.background = "#2ecc71"; // Green
+      dot.style.boxShadow = "0 0 8px #2ecc71";
+    } else {
+      dot.style.background = "#e74c3c"; // Red
+      dot.style.boxShadow = "0 0 8px #e74c3c";
+      sysMsg.textContent = "🔴 Connection Lost - Retrying...";
+      sysMsg.style.color = "#e74c3c";
+    }
+  }
+
+  /* --- 7. SIMULATION LOGIC --- */
+  document.getElementById('addBus').onclick = () => {
+    const id = `BUS-${100 + state.simCounter++}`;
+    let lat = 12.9755, lng = 79.1650;
+    const dLat = (Math.random()-0.5)*0.002, dLng = (Math.random()-0.5)*0.002;
+
+    // Fire-and-forget simulation loop
+    // Note: We rely on System Reset to kill these
+    setInterval(() => {
+      lat += dLat; lng += dLng;
+      fetch(`${API_BASE}/api/bus/update`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ 
+          bus_id: id, latitude: lat, longitude: lng, 
+          passenger_count: Math.floor(Math.random()*50) 
+        })
+      }).catch(e => {}); // Ignore network errors in sim
+    }, 2000);
+  };
+
+  document.getElementById('nukeSystem').onclick = async () => {
+    // 1. Tell Backend to Wipe Data
+    try { await fetch(`${API_BASE}/api/system/reset`, { method: 'POST' }); } catch(e){}
+    
+    // 2. Hard Reload to clear Client Simulation State
+    location.reload(); 
+  };
+
+  /* --- INIT --- */
+  setInterval(syncFleet, THRESHOLDS.POLL_MS);
 
 })();
 </script>
-
 </body>
 </html>
