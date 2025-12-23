@@ -44,7 +44,6 @@ app.post("/api/bus/update", (req, res) => {
     return res.status(400).json({ error: "Invalid payload" });
   }
 
-  // Replace or add bus
   const index = busData.findIndex(b => b.bus_id === bus_id);
 
   const updatedBus = {

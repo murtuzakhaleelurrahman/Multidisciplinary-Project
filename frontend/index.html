@@ -16,7 +16,6 @@ html, body, #map {
 
 #map { position: absolute; inset: 0; }
 
-/* Loading overlay */
 #loading {
   position: absolute;
   top: 50%; left: 50%;
@@ -29,7 +28,6 @@ html, body, #map {
   font-weight: bold;
 }
 
-/* UI */
 .topbar {
   position: absolute;
   top: 12px; left: 12px;
@@ -75,9 +73,9 @@ html, body, #map {
 
 <div class="legend">
   <b>Legend</b><br>
-  🟢 Seats (&lt;10)<br>
-  🟠 Standing (10–29)<br>
-  🔴 Full (≥30)
+  🟢 Online (&lt;10s)<br>
+  🟠 Delayed (10–30s)<br>
+  🔴 Offline (&gt;30s)
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -94,10 +92,7 @@ const API_PATH = "/api/bus_locations";
 
 const map = L.map("map", {
   center: [12.9716, 79.1588],
-  zoom: 13,
-  worldCopyJump: false,
-  maxBounds: [[-90, -180], [90, 180]],
-  maxBoundsViscosity: 1
+  zoom: 13
 });
 
 L.tileLayer(
@@ -107,10 +102,20 @@ L.tileLayer(
 
 const markers = new Map();
 
+/* Passenger color */
 function colorFor(pax) {
   if (pax < 10) return "green";
   if (pax < 30) return "orange";
   return "red";
+}
+
+/* 🟢🟠🔴 Status logic */
+function busStatus(lastUpdated) {
+  const diff = Date.now() - new Date(lastUpdated).getTime();
+
+  if (diff < 10000) return { text: "🟢 Online", color: "green" };
+  if (diff < 30000) return { text: "🟠 Delayed", color: "orange" };
+  return { text: "🔴 Offline", color: "red" };
 }
 
 async function fetchData() {
@@ -122,6 +127,7 @@ async function fetchData() {
 
     data.forEach(bus => {
       const color = colorFor(bus.passenger_count);
+      const status = busStatus(bus.last_updated);
       const time = new Date(bus.last_updated).toLocaleTimeString();
 
       const icon = L.divIcon({
@@ -142,9 +148,18 @@ async function fetchData() {
         markers.set(bus.bus_id, m);
       }
 
+      if (status.text.includes("Offline")) {
+        markers.get(bus.bus_id).setOpacity(0.4);
+      } else {
+        markers.get(bus.bus_id).setOpacity(1);
+      }
+
       markers.get(bus.bus_id).bindPopup(`
         <b>${bus.bus_id}</b><br>
         Passengers: ${bus.passenger_count}<br>
+        Status: <span style="color:${status.color}; font-weight:bold;">
+          ${status.text}
+        </span><br>
         <small>🕒 ${time}</small>
       `);
     });
