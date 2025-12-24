@@ -2,20 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Smart Transit: Visual Restoration</title>
+<title>Smart Transit: Final</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
 
 <style>
-  html, body, #map { height: 100%; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #222; }
+  html, body, #map { height: 100%; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #222; overflow: hidden; }
   
-  /* --- 1. SYSTEM BOOT WINDOW (Restored) --- */
+  /* --- BOOT WINDOW --- */
   #status-window {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     background: rgba(255, 255, 255, 0.95); padding: 30px; width: 320px;
     border-radius: 16px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); z-index: 9999;
     backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.8);
-    text-align: center; transition: all 0.8s ease;
+    text-align: center; transition: all 0.8s ease; pointer-events: none;
   }
   .status-step { display: flex; align-items: center; margin: 15px 0; color: #555; font-size: 15px; opacity: 0.5; transition: 0.5s; }
   .status-icon { width: 24px; margin-right: 15px; font-size: 18px; }
@@ -25,38 +28,70 @@
   /* --- HUD PANELS --- */
   .hud-panel {
     position: absolute; z-index: 1000; background: rgba(255,255,255,0.95);
-    backdrop-filter: blur(8px); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    backdrop-filter: blur(8px); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     padding: 12px; transition: all 0.3s ease;
   }
 
-  /* Top Bar */
-  .top-bar { top: 15px; left: 15px; display: flex; align-items: center; gap: 15px; }
-  .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #999; box-shadow: 0 0 5px currentColor; transition: 0.3s; }
-  
-  /* Bottom Status Footer */
-  .status-bar { 
-    position: absolute; bottom: 0; left: 0; right: 0; z-index: 1000;
-    background: #1a1a1a; color: #fff; padding: 8px 20px;
-    font-size: 13px; display: flex; justify-content: space-between; align-items: center;
-    border-top: 1px solid #333;
-  }
+  /* Top Left: Command Bar */
+  .top-bar { top: 15px; left: 15px; display: flex; align-items: center; gap: 12px; }
+  select { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; outline: none; cursor: pointer; }
 
-  /* Control Panel */
-  .controls { bottom: 50px; left: 15px; width: 200px; }
-  .btn { width: 100%; padding: 8px; margin-top: 6px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 13px; }
-  .btn-blue { background: #3498db; color: white; } .btn-blue:hover { background: #2980b9; }
-  .btn-red { background: #e74c3c; color: white; } .btn-red:hover { background: #c0392b; }
-
-  /* Legend */
-  .legend { top: 15px; right: 15px; font-size: 12px; }
-  .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  /* Bottom Right: Legend */
+  .legend { bottom: 90px; right: 15px; font-size: 12px; width: 130px; }
+  .legend-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
   .color-box { width: 12px; height: 12px; border-radius: 2px; }
 
-  /* --- POPUP STYLES (Restored) --- */
-  .bus-popup { font-family: 'Segoe UI', sans-serif; min-width: 140px; text-align: center; }
-  .progress-bg { background: #eee; height: 8px; border-radius: 4px; overflow: hidden; margin: 8px 0; }
+  /* Bottom Left: Controls */
+  .controls { bottom: 50px; left: 15px; width: 200px; z-index: 10001; }
+  .btn { width: 100%; padding: 10px; margin-top: 5px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: white; transition: 0.2s; font-size: 13px; }
+  .btn-blue { background: #2563eb; } .btn-blue:hover { background: #1d4ed8; }
+  .btn-red { background: #dc2626; } .btn-red:hover { background: #b91c1c; }
+
+  /* Bottom Right: Locate Me (UPDATED: Transparent Glass) */
+  .btn-locate {
+    position: absolute; bottom: 30px; right: 20px; z-index: 1000;
+    /* Transparent Background with Blur */
+    background: rgba(255, 255, 255, 0.2); 
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    width: 45px; height: 45px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s;
+  }
+  .btn-locate:hover { background: rgba(255, 255, 255, 0.4); transform: scale(1.1); }
+
+  /* Status Footer */
+  .status-footer { 
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;
+    background: #111; color: #888; padding: 4px 15px; font-size: 11px;
+    display: flex; justify-content: space-between;
+  }
+
+  /* --- POPUP & ROUTING --- */
+  .bus-popup { font-family: 'Segoe UI', sans-serif; min-width: 150px; text-align: center; }
+  .progress-bg { background: #e5e7eb; height: 6px; border-radius: 3px; overflow: hidden; margin: 8px 0; }
   .progress-fill { height: 100%; transition: width 0.5s; }
-  .popup-stat { display: flex; justify-content: space-between; font-size: 11px; color: #666; }
+  .popup-stat { display: flex; justify-content: space-between; font-size: 11px; color: #666; font-weight: 600; }
+
+  /* Routing Box Styling */
+  .leaflet-routing-container {
+    background: rgba(255,255,255,0.95) !important;
+    backdrop-filter: blur(8px);
+    border-radius: 12px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
+    margin: 15px !important;
+    border: none !important;
+    max-width: 280px;
+    z-index: 5000; /* Ensure it's on top */
+  }
+  /* Fix for missing geocoder inputs */
+  .leaflet-routing-geocoders input {
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    padding: 8px;
+    width: 100%;
+    font-family: inherit;
+  }
 </style>
 </head>
 <body>
@@ -76,11 +111,15 @@
 <div id="map"></div>
 
 <div id="ui-layer" style="opacity: 0; transition: opacity 1s;">
+  
   <div class="hud-panel top-bar">
     <div id="connectionDot" class="status-dot"></div>
-    <div style="font-weight: 700; color:#333;">🚌 Transit Command</div>
-    <div style="border-left: 1px solid #ccc; padding-left: 10px; font-size: 13px; color:#555;">
-      Active Fleet: <b id="fleetCount">0</b>
+    <div style="font-weight: 700; color:#333;">🚌 Command</div>
+    <select id="busSelect">
+      <option value="ALL">Show All Fleet</option>
+    </select>
+    <div style="font-size: 12px; color:#666; border-left:1px solid #ddd; padding-left:10px;">
+      Count: <b id="fleetCount">0</b>
     </div>
   </div>
 
@@ -89,25 +128,27 @@
     <div class="legend-item"><div class="color-box" style="background:#2ecc71"></div> Low (&lt;10)</div>
     <div class="legend-item"><div class="color-box" style="background:#f39c12"></div> Med (10-29)</div>
     <div class="legend-item"><div class="color-box" style="background:#e74c3c"></div> High (&ge;30)</div>
-    <hr style="border:0; border-top:1px solid #eee; margin:5px 0;">
-    <div style="font-weight:bold; margin-bottom:5px; color:#444;">Signal Health</div>
-    <div class="legend-item"><span style="opacity:1">🚌</span> Live (&lt;10s)</div>
-    <div class="legend-item"><span style="opacity:0.5">🚌</span> Stale (&gt;10s)</div>
   </div>
 
-  <div class="hud-panel controls">
-    <div style="font-size:11px; font-weight:bold; color:#888; letter-spacing:1px; margin-bottom:5px;">SIMULATION</div>
-    <button id="addBus" class="btn btn-blue">➕ Add Bus</button>
-    <button id="nukeSystem" class="btn btn-red">☢️ System Reset</button>
-  </div>
 </div>
 
-<div class="status-bar" id="statusBar">
-  <span id="systemMsg">Initializing System...</span>
-  <span style="font-family: monospace; color:#888;" id="latencyMsg">-- ms</span>
+<div class="hud-panel controls">
+  <div style="font-size:10px; font-weight:700; color:#888; letter-spacing:1px; margin-bottom:5px;">SIMULATION</div>
+  <button id="addBus" class="btn btn-blue">➕ Add Bus</button>
+  <button id="nukeSystem" class="btn btn-red">☢️ Reset System</button>
+</div>
+
+<div class="btn-locate" id="locateBtn" title="Locate Me">📍</div>
+
+<div class="status-footer">
+  <span id="systemMsg">Booting...</span>
+  <span id="latencyMsg" style="font-family:monospace">-- ms</span>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
 <script>
 (() => {
   /* CONFIG */
@@ -116,25 +157,38 @@
   const BUS_CAPACITY = 50;
 
   /* STATE */
-  const state = { buses: new Map(), connection: false, simCounter: 1, bootComplete: false };
+  const state = { buses: new Map(), connection: false, simCounter: 1, bootComplete: false, userMarker: null };
 
   /* MAP INIT */
   const map = L.map('map', { center: [12.9755, 79.1650], zoom: 14, zoomControl: false });
   L.control.zoom({ position: 'bottomright' }).addTo(map);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' }).addTo(map);
 
+  /* --- 🚀 NAVIGATION ENGINE --- */
+  // Now using Geocoder for proper address search
+  L.Routing.control({
+    waypoints: [ ], // Empty start
+    routeWhileDragging: true,
+    geocoder: L.Control.Geocoder.nominatim(), // Uses OpenStreetMap Search
+    showAlternatives: false,
+    lineOptions: { styles: [{color: '#3b82f6', opacity: 0.6, weight: 6}] },
+    createMarker: function() { return null; }, // Hide default A/B markers
+    containerClassName: 'routing-glass'
+  }).addTo(map);
+
   /* --- VISUALS --- */
   function getOccupancyColor(pax) { return pax < 10 ? "#2ecc71" : pax < 30 ? "#f39c12" : "#e74c3c"; }
 
-  // 1. SOLID ARROW RESTORATION
   function createBusIcon(heading, color, opacity) {
     return L.divIcon({
       className: 'bus-marker',
-      html: `<div style="transform: rotate(${heading}deg); transition: transform 0.5s ease; opacity: ${opacity}; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.3));">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2L19 21L12 17L5 21Z" fill="${color}" stroke="white" stroke-width="2"/>
-        </svg></div>`,
-      iconSize: [40, 40], iconAnchor: [20, 20]
+      html: `
+        <div style="transform: rotate(${heading}deg); transition: transform 0.5s ease; opacity: ${opacity}; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none">
+             <path d="M12 2L19 21L12 17L5 21Z" fill="${color}" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </div>`,
+      iconSize: [44, 44], iconAnchor: [22, 22]
     });
   }
 
@@ -147,10 +201,10 @@
     return (toRad(Math.atan2(y, x)) * 180 / Math.PI + 360) % 360;
   }
 
-  /* --- BOOT SEQUENCE LOGIC --- */
+  /* --- BOOT LOGIC --- */
   function updateBootStep(step, done) {
     const el = document.getElementById(step);
-    if(done) {
+    if(done && el) {
       el.style.opacity = 1; 
       el.querySelector('.status-icon').innerHTML = "✅";
       el.style.color = "#2ecc71";
@@ -161,17 +215,34 @@
   function completeBoot() {
     if(state.bootComplete) return;
     state.bootComplete = true;
-    
     const win = document.getElementById('status-window');
-    win.style.opacity = 0;
-    win.style.transform = "translate(-50%, -60%)";
+    win.style.opacity = 0; win.style.transform = "translate(-50%, -60%)";
     setTimeout(() => { win.style.display = 'none'; }, 800);
-
-    // Reveal UI
     document.getElementById('ui-layer').style.opacity = 1;
   }
 
-  /* --- CORE LOOP --- */
+  /* --- GPS LOCATOR (Updated Icon) --- */
+  document.getElementById('locateBtn').onclick = () => {
+    if (!navigator.geolocation) return alert("GPS not supported");
+    const btn = document.getElementById('locateBtn'); btn.innerHTML = "⏳";
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      if (state.userMarker) map.removeLayer(state.userMarker);
+      
+      // NEW: User Pin Icon
+      const userIcon = L.divIcon({
+        className: 'user-pin',
+        html: `<div style="font-size:32px; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4)); animation: bounce 1s infinite;">📍</div>`,
+        iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -40]
+      });
+
+      state.userMarker = L.marker([latitude, longitude], {icon: userIcon}).bindPopup("<b>You Are Here</b>").addTo(map);
+      map.flyTo([latitude, longitude], 16);
+      btn.innerHTML = "📍";
+    }, () => { alert("GPS Access Denied"); btn.innerHTML = "📍"; });
+  };
+
+  /* --- SYNC LOOP --- */
   async function syncFleet() {
     const start = Date.now();
     try {
@@ -180,86 +251,89 @@
       
       document.getElementById('latencyMsg').textContent = `${Date.now() - start} ms`;
       handleConnectionSuccess(true);
-      
-      // Boot Logic
       updateBootStep('step-server', true);
+      
       if (data.length > 0) {
         updateBootStep('step-stream', true);
         setTimeout(completeBoot, 1000);
       }
-
       processFleetData(data);
     } catch (e) { handleConnectionSuccess(false); }
     pruneFleet();
   }
 
-  function processFleetData(serverBuses) {
-    serverBuses.forEach(busData => {
-      const { bus_id, latitude, longitude, passenger_count, last_updated } = busData;
-      if (typeof latitude !== 'number' || typeof longitude !== 'number') return;
-      if (latitude === 0 && longitude === 0) return;
+  function processFleetData(data) {
+    const select = document.getElementById('busSelect');
+    const selectedId = select.value;
+    
+    data.forEach(bus => {
+      if(!state.buses.has(bus.bus_id)) select.add(new Option(bus.bus_id, bus.bus_id));
+      if (typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') return;
+      if (bus.latitude === 0 && bus.longitude === 0) return;
 
-      const age = Date.now() - new Date(last_updated).getTime();
+      const age = Date.now() - new Date(bus.last_updated).getTime();
       const isStale = age > THRESHOLDS.STALE_MS;
       const opacity = isStale ? 0.5 : 1.0;
-      const color = getOccupancyColor(passenger_count);
-      const pct = Math.min(100, Math.round((passenger_count / BUS_CAPACITY) * 100));
-      
-      let entity = state.buses.get(bus_id);
+      const color = getOccupancyColor(bus.passenger_count);
+      const pct = Math.min(100, Math.round((bus.passenger_count / BUS_CAPACITY) * 100));
+
+      let entity = state.buses.get(bus.bus_id);
       let heading = 0;
+      let displayOpacity = opacity;
+
+      if (selectedId !== "ALL" && bus.bus_id !== selectedId) displayOpacity = 0.2;
 
       if (entity) {
-        const dist = Math.sqrt(Math.pow(latitude - entity.pos.lat, 2) + Math.pow(longitude - entity.pos.lon, 2));
-        heading = dist > 0.00005 ? getHeading(entity.pos, { lat: latitude, lon: longitude }) : (entity.heading || 0);
+        const dist = Math.sqrt(Math.pow(bus.latitude - entity.pos.lat, 2) + Math.pow(bus.longitude - entity.pos.lon, 2));
+        heading = dist > 0.00005 ? getHeading(entity.pos, { lat: bus.latitude, lon: bus.longitude }) : (entity.heading || 0);
 
-        entity.marker.setLatLng([latitude, longitude]);
-        entity.marker.setIcon(createBusIcon(heading, color, opacity));
-        
-        // 2. RESTORED POPUP BAR
+        entity.marker.setLatLng([bus.latitude, bus.longitude]);
+        entity.marker.setIcon(createBusIcon(heading, color, displayOpacity));
+        entity.marker.setZIndexOffset(selectedId === bus.bus_id ? 1000 : 100); 
+
         const statusText = isStale ? "<span style='color:#f39c12'>⚠ Signal Weak</span>" : "<span style='color:#2ecc71'>● Live</span>";
         entity.marker.setPopupContent(`
           <div class="bus-popup">
-            <h3 style="margin:0">${bus_id}</h3>
+            <h3 style="margin:0">${bus.bus_id}</h3>
             <div class="progress-bg"><div class="progress-fill" style="width:${pct}%; background:${color}"></div></div>
-            <div class="popup-stat"><span>${passenger_count} / ${BUS_CAPACITY} Pax</span> <span>${pct}% Full</span></div>
+            <div class="popup-stat"><span>${bus.passenger_count} Pax</span> <span>${pct}% Full</span></div>
             <div style="margin-top:5px; font-size:10px; border-top:1px solid #eee; padding-top:3px;">${statusText}</div>
           </div>
         `);
-
-        entity.pos = { lat: latitude, lon: longitude };
+        entity.pos = { lat: bus.latitude, lon: bus.longitude };
         entity.heading = heading;
         entity.lastSeen = Date.now();
       } else {
-        const marker = L.marker([latitude, longitude], { icon: createBusIcon(0, color, opacity) }).bindPopup(`<b>${bus_id}</b>`).addTo(map);
-        state.buses.set(bus_id, { marker, pos: { lat: latitude, lon: longitude }, heading: 0, lastSeen: Date.now() });
+        const marker = L.marker([bus.latitude, bus.longitude], { icon: createBusIcon(0, color, displayOpacity), zIndexOffset: 100 }).addTo(map);
+        marker.bindPopup(`<b>${bus.bus_id}</b>`);
+        state.buses.set(bus.bus_id, { marker, pos: { lat: bus.latitude, lon: bus.longitude }, heading: 0, lastSeen: Date.now() });
       }
     });
   }
 
   function pruneFleet() {
     let activeCount = 0;
-    const now = Date.now();
     state.buses.forEach((entity, id) => {
-      if (now - entity.lastSeen > THRESHOLDS.OFFLINE_MS) { map.removeLayer(entity.marker); state.buses.delete(id); }
-      else { activeCount++; }
+      if (Date.now() - entity.lastSeen > THRESHOLDS.OFFLINE_MS) { 
+        map.removeLayer(entity.marker); state.buses.delete(id);
+        [...document.getElementById('busSelect').options].forEach(opt => { if(opt.value === id) opt.remove(); });
+      } else { activeCount++; }
     });
     document.getElementById('fleetCount').textContent = activeCount;
-    
-    const sysMsg = document.getElementById('systemMsg');
-    if (state.connection) {
-      if(!state.bootComplete) { sysMsg.textContent = "Booting..."; }
-      else if (activeCount === 0) { sysMsg.textContent = "🟢 System Online | Waiting for Fleet..."; sysMsg.style.color = "#f39c12"; }
-      else { sysMsg.textContent = "🟢 Tracking Active Fleet"; sysMsg.style.color = "#2ecc71"; }
+    const msg = document.getElementById('systemMsg');
+    if(state.connection && state.bootComplete) {
+       if(activeCount === 0) { msg.textContent = "🟢 Online | Waiting for Fleet..."; msg.style.color = "#f39c12"; }
+       else { msg.textContent = "🟢 Tracking Active Fleet"; msg.style.color = "#2ecc71"; }
     }
   }
 
   function handleConnectionSuccess(isOnline) {
     state.connection = isOnline;
-    const dot = document.getElementById('connectionDot');
-    if (isOnline) { dot.style.background = "#2ecc71"; dot.style.boxShadow = "0 0 8px #2ecc71"; }
-    else { dot.style.background = "#e74c3c"; dot.style.boxShadow = "0 0 8px #e74c3c"; document.getElementById('systemMsg').textContent = "🔴 Connection Lost"; document.getElementById('systemMsg').style.color="#e74c3c"; }
+    const msg = document.getElementById('systemMsg');
+    if (!isOnline) { msg.textContent = "🔴 Connection Lost"; msg.style.color = "#dc2626"; }
   }
 
+  /* CONTROLS */
   document.getElementById('addBus').onclick = () => {
     const id = `BUS-${100 + state.simCounter++}`;
     let lat = 12.9755, lng = 79.1650;
@@ -269,8 +343,9 @@
       fetch(`${API_BASE}/api/bus/update`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ bus_id: id, latitude: lat, longitude: lng, passenger_count: Math.floor(Math.random()*50) })}).catch(e=>{});
     }, 2000);
   };
-  document.getElementById('nukeSystem').onclick = async () => { try { await fetch(`${API_BASE}/api/system/reset`, { method: 'POST' }); } catch(e){} location.reload(); };
 
+  document.getElementById('nukeSystem').onclick = async () => { try { await fetch(`${API_BASE}/api/system/reset`, { method: 'POST' }); } catch(e){} location.reload(); };
+  document.getElementById('busSelect').onchange = () => { syncFleet(); };
   setInterval(syncFleet, THRESHOLDS.POLL_MS);
 })();
 </script>
