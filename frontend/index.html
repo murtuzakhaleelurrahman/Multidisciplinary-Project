@@ -2,351 +2,661 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Smart Transit: Final</title>
+<title>Smart Transit – Phase 4 (Safety & Reassurance)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+<!-- ================= LEAFLET ================= -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
-<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css">
 
 <style>
-  html, body, #map { height: 100%; margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #222; overflow: hidden; }
-  
-  /* --- BOOT WINDOW --- */
-  #status-window {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    background: rgba(255, 255, 255, 0.95); padding: 30px; width: 320px;
-    border-radius: 16px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); z-index: 9999;
-    backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.8);
-    text-align: center; transition: all 0.8s ease; pointer-events: none;
-  }
-  .status-step { display: flex; align-items: center; margin: 15px 0; color: #555; font-size: 15px; opacity: 0.5; transition: 0.5s; }
-  .status-icon { width: 24px; margin-right: 15px; font-size: 18px; }
-  .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; }
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+/* =========================================================
+   THEME VARIABLES
+   ========================================================= */
+:root {
+  --bg-color: #222;
+  --panel-bg: rgba(255,255,255,0.95);
+  --text-color: #000;
+  --accent-color: #2563eb;
+}
+body.night-mode {
+  --bg-color: #000;
+  --panel-bg: rgba(30,30,30,0.9);
+  --text-color: #fff;
+  --accent-color: #3b82f6;
+}
 
-  /* --- HUD PANELS --- */
-  .hud-panel {
-    position: absolute; z-index: 1000; background: rgba(255,255,255,0.95);
-    backdrop-filter: blur(8px); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    padding: 12px; transition: all 0.3s ease;
-  }
+html, body, #map {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+}
 
-  /* Top Left: Command Bar */
-  .top-bar { top: 15px; left: 15px; display: flex; align-items: center; gap: 12px; }
-  select { padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; outline: none; cursor: pointer; }
+/* =========================================================
+   HUD & PANELS
+   ========================================================= */
+.hud-panel {
+  position: absolute;
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  padding: 12px;
+  background: var(--panel-bg);
+}
 
-  /* Bottom Right: Legend */
-  .legend { bottom: 90px; right: 15px; font-size: 12px; width: 130px; }
-  .legend-item { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-  .color-box { width: 12px; height: 12px; border-radius: 2px; }
+/* Top bar */
+.top-bar {
+  top: 15px;
+  left: 15px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
 
-  /* Bottom Left: Controls */
-  .controls { bottom: 50px; left: 15px; width: 200px; z-index: 10001; }
-  .btn { width: 100%; padding: 10px; margin-top: 5px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: white; transition: 0.2s; font-size: 13px; }
-  .btn-blue { background: #2563eb; } .btn-blue:hover { background: #1d4ed8; }
-  .btn-red { background: #dc2626; } .btn-red:hover { background: #b91c1c; }
+/* Legend */
+.legend {
+  bottom: 90px;
+  right: 15px;
+  width: 150px;
+  font-size: 12px;
+}
+.legend-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.color-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
 
-  /* Bottom Right: Locate Me (UPDATED: Transparent Glass) */
-  .btn-locate {
-    position: absolute; bottom: 30px; right: 20px; z-index: 1000;
-    /* Transparent Background with Blur */
-    background: rgba(255, 255, 255, 0.2); 
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    width: 45px; height: 45px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center; font-size: 22px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s;
-  }
-  .btn-locate:hover { background: rgba(255, 255, 255, 0.4); transform: scale(1.1); }
+/* Controls */
+.controls {
+  bottom: 50px;
+  left: 15px;
+  width: 220px;
+}
+.controls button {
+  width: 100%;
+  padding: 9px;
+  margin-top: 6px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  color: white;
+}
+.btn-blue { background: var(--accent-color); }
+.btn-red { background: #dc2626; }
 
-  /* Status Footer */
-  .status-footer { 
-    position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;
-    background: #111; color: #888; padding: 4px 15px; font-size: 11px;
-    display: flex; justify-content: space-between;
-  }
+/* Locate Me */
+.btn-locate {
+  position: absolute;
+  bottom: 30px;
+  right: 20px;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 1000;
+}
 
-  /* --- POPUP & ROUTING --- */
-  .bus-popup { font-family: 'Segoe UI', sans-serif; min-width: 150px; text-align: center; }
-  .progress-bg { background: #e5e7eb; height: 6px; border-radius: 3px; overflow: hidden; margin: 8px 0; }
-  .progress-fill { height: 100%; transition: width 0.5s; }
-  .popup-stat { display: flex; justify-content: space-between; font-size: 11px; color: #666; font-weight: 600; }
+/* Footer */
+.status-footer {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: #111;
+  color: #888;
+  padding: 4px 15px;
+  font-size: 11px;
+  display: flex;
+  justify-content: space-between;
+}
 
-  /* Routing Box Styling */
-  .leaflet-routing-container {
-    background: rgba(255,255,255,0.95) !important;
-    backdrop-filter: blur(8px);
-    border-radius: 12px !important;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
-    margin: 15px !important;
-    border: none !important;
-    max-width: 280px;
-    z-index: 5000; /* Ensure it's on top */
-  }
-  /* Fix for missing geocoder inputs */
-  .leaflet-routing-geocoders input {
-    border-radius: 6px;
-    border: 1px solid #ccc;
-    padding: 8px;
-    width: 100%;
-    font-family: inherit;
-  }
+/* =========================================================
+   BOOT WINDOW
+   ========================================================= */
+#status-window {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--panel-bg);
+  padding: 30px;
+  width: 320px;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+  z-index: 9999;
+}
+.loader {
+  width: 14px; height: 14px;
+  border: 3px solid #eee;
+  border-top: 3px solid var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* =========================================================
+   ROUTING (COLLAPSIBLE)
+   ========================================================= */
+#routing-wrapper {
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 360px;
+  z-index: 6000;
+}
+#routing-toggle {
+  background: var(--panel-bg);
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+#routing-container { display:none; margin-top:8px; }
+#routing-wrapper.open #routing-container { display:block; }
+
+/* =========================================================
+   PHASE 3 – ETA BADGE
+   ========================================================= */
+.marker-wrapper {
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+.eta-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #222;
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 100;
+}
+body.night-mode .eta-badge {
+  background: #fff;
+  color: #000;
+}
+
+/* =========================================================
+   BUS POPUP
+   ========================================================= */
+.bus-popup {
+  min-width: 170px;
+  text-align: center;
+}
+.progress-bg {
+  background:#e5e7eb;
+  height:6px;
+  border-radius:3px;
+  overflow:hidden;
+  margin:6px 0;
+}
+.progress-fill { height:100%; }
+
+/* =========================================================
+   PHASE 4 – GUARDIAN MODE BADGE
+   ========================================================= */
+#guardian-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #dc2626;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  z-index: 10000;
+  display: none;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(220,38,38,0.7); }
+  70% { box-shadow: 0 0 0 12px rgba(220,38,38,0); }
+  100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+}
 </style>
 </head>
+
 <body>
 
+<div id="guardian-banner">📡 LIVE TRACKING ACTIVE</div>
+
 <div id="status-window">
-  <h2 style="margin:0 0 20px 0; color:#333;">System Check</h2>
-  <div class="status-step" id="step-server">
-    <div class="status-icon"><div class="loader"></div></div>
-    <span>Connecting to Cloud...</span>
-  </div>
-  <div class="status-step" id="step-stream">
-    <div class="status-icon">📡</div>
-    <span>Waiting for Telemetry...</span>
-  </div>
+  <h2>System Check</h2>
+  <div><span class="loader"></span> Connecting…</div>
 </div>
 
 <div id="map"></div>
 
-<div id="ui-layer" style="opacity: 0; transition: opacity 1s;">
-  
+<div id="routing-wrapper">
+  <div id="routing-toggle">🔍 Search route</div>
+  <div id="routing-container"></div>
+</div>
+
+<div id="ui-layer" style="opacity:0; transition:opacity 1s;">
   <div class="hud-panel top-bar">
-    <div id="connectionDot" class="status-dot"></div>
-    <div style="font-weight: 700; color:#333;">🚌 Command</div>
+    <strong>🚌 Command</strong>
     <select id="busSelect">
       <option value="ALL">Show All Fleet</option>
     </select>
-    <div style="font-size: 12px; color:#666; border-left:1px solid #ddd; padding-left:10px;">
-      Count: <b id="fleetCount">0</b>
-    </div>
+    <span>Count: <b id="fleetCount">0</b></span>
   </div>
 
   <div class="hud-panel legend">
-    <div style="font-weight:bold; margin-bottom:5px; color:#444;">Occupancy</div>
-    <div class="legend-item"><div class="color-box" style="background:#2ecc71"></div> Low (&lt;10)</div>
-    <div class="legend-item"><div class="color-box" style="background:#f39c12"></div> Med (10-29)</div>
-    <div class="legend-item"><div class="color-box" style="background:#e74c3c"></div> High (&ge;30)</div>
+    <b>Occupancy</b>
+    <div class="legend-item"><div class="color-box" style="background:#2ecc71"></div> Low</div>
+    <div class="legend-item"><div class="color-box" style="background:#f39c12"></div> Med</div>
+    <div class="legend-item"><div class="color-box" style="background:#e74c3c"></div> High</div>
+    <div class="legend-item"><div class="color-box" style="background:#888"></div> Offline</div>
   </div>
-
 </div>
 
 <div class="hud-panel controls">
-  <div style="font-size:10px; font-weight:700; color:#888; letter-spacing:1px; margin-bottom:5px;">SIMULATION</div>
-  <button id="addBus" class="btn btn-blue">➕ Add Bus</button>
-  <button id="nukeSystem" class="btn btn-red">☢️ Reset System</button>
+  <div style="display:flex; gap:5px;">
+    <button id="themeToggle" class="btn-blue">🌙 Night</button>
+    <button id="focusToggle" class="btn-blue">🎯 Focus</button>
+  </div>
+  <button id="addBus" class="btn-blue">➕ Add Bus</button>
+  <button id="nukeSystem" class="btn-red">☢️ Reset System</button>
 </div>
 
-<div class="btn-locate" id="locateBtn" title="Locate Me">📍</div>
+<div class="btn-locate" id="locateBtn">📍</div>
 
 <div class="status-footer">
-  <span id="systemMsg">Booting...</span>
-  <span id="latencyMsg" style="font-family:monospace">-- ms</span>
+  <span id="systemMsg">Booting…</span>
+  <span id="latencyMsg">-- ms</span>
 </div>
 
+<!-- ================= SCRIPTS ================= -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
 
 <script>
 (() => {
-  /* CONFIG */
-  const API_BASE = location.hostname.includes("localhost") ? "http://localhost:3000" : "https://bus-tracker-backend-sv2m.onrender.com";
-  const THRESHOLDS = { STALE_MS: 10000, OFFLINE_MS: 30000, POLL_MS: 2000 };
-  const BUS_CAPACITY = 50;
 
-  /* STATE */
-  const state = { buses: new Map(), connection: false, simCounter: 1, bootComplete: false, userMarker: null };
+/* =========================================================
+   CONFIG & STATE
+   ========================================================= */
+const API_BASE = location.hostname.includes("localhost")
+  ? "http://localhost:3000"
+  : "https://bus-tracker-backend-sv2m.onrender.com";
 
-  /* MAP INIT */
-  const map = L.map('map', { center: [12.9755, 79.1650], zoom: 14, zoomControl: false });
-  L.control.zoom({ position: 'bottomright' }).addTo(map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© CARTO' }).addTo(map);
+const THRESHOLDS = { STALE_MS:60000, OFFLINE_MS:120000, POLL_MS:2000 };
+const BUS_CAPACITY = 50;
 
-  /* --- 🚀 NAVIGATION ENGINE --- */
-  // Now using Geocoder for proper address search
-  L.Routing.control({
-    waypoints: [ ], // Empty start
-    routeWhileDragging: true,
-    geocoder: L.Control.Geocoder.nominatim(), // Uses OpenStreetMap Search
-    showAlternatives: false,
-    lineOptions: { styles: [{color: '#3b82f6', opacity: 0.6, weight: 6}] },
-    createMarker: function() { return null; }, // Hide default A/B markers
-    containerClassName: 'routing-glass'
-  }).addTo(map);
+const state = {
+  buses: new Map(),
+  simIntervals: new Map(),
+  userMarker: null,
+  bootComplete: false,
+  focusMode: false,
+  theme: "day",
+  watchedBuses: new Set(),
 
-  /* --- VISUALS --- */
-  function getOccupancyColor(pax) { return pax < 10 ? "#2ecc71" : pax < 30 ? "#f39c12" : "#e74c3c"; }
+  // ===== PHASE 4 =====
+  guardianMode: false,
+  trackedBusId: null
+};
 
-  function createBusIcon(heading, color, opacity) {
-    return L.divIcon({
-      className: 'bus-marker',
-      html: `
-        <div style="transform: rotate(${heading}deg); transition: transform 0.5s ease; opacity: ${opacity}; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none">
-             <path d="M12 2L19 21L12 17L5 21Z" fill="${color}" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+/* =========================================================
+   GUARDIAN MODE DETECTION (URL PARAM)
+   ========================================================= */
+const params = new URLSearchParams(window.location.search);
+if (params.has("track")) {
+  state.guardianMode = true;
+  state.trackedBusId = params.get("track");
+  document.getElementById("guardian-banner").textContent =
+    `📡 TRACKING ${state.trackedBusId}`;
+  document.getElementById("guardian-banner").style.display = "block";
+}
+
+/* =========================================================
+   NOTIFICATIONS
+   ========================================================= */
+if (Notification.permission === "default") {
+  Notification.requestPermission();
+}
+const notifySound = new Audio(
+  "https://actions.google.com/sounds/v1/alarms/beep_short.ogg"
+);
+
+/* =========================================================
+   MAP & TILES
+   ========================================================= */
+const dayTiles = L.tileLayer(
+  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+);
+const nightTiles = L.tileLayer(
+  "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png"
+);
+
+const map = L.map("map",{center:[12.9755,79.1650],zoom:14});
+dayTiles.addTo(map);
+
+/* =========================================================
+   ROUTING
+   ========================================================= */
+const routing = L.Routing.control({
+  waypoints: [],
+  routeWhileDragging: true,
+  geocoder: L.Control.Geocoder.nominatim(),
+  createMarker:()=>null
+}).addTo(map);
+
+document.getElementById("routing-container")
+  .appendChild(routing.getContainer());
+document.getElementById("routing-toggle").onclick =
+  () => document.getElementById("routing-wrapper").classList.toggle("open");
+
+/* =========================================================
+   TOGGLES
+   ========================================================= */
+document.getElementById("themeToggle").onclick = () => {
+  document.body.classList.toggle("night-mode");
+  state.theme = state.theme === "day" ? "night" : "day";
+  map.removeLayer(state.theme === "night" ? dayTiles : nightTiles);
+  (state.theme === "night" ? nightTiles : dayTiles).addTo(map);
+  document.getElementById("themeToggle").textContent =
+    state.theme === "day" ? "🌙 Night" : "☀️ Day";
+};
+
+document.getElementById("focusToggle").onclick = () => {
+  state.focusMode = !state.focusMode;
+  const btn = document.getElementById("focusToggle");
+  btn.textContent = state.focusMode ? "🎯 ON" : "🎯 Focus";
+  btn.style.background = state.focusMode ? "#2ecc71" : "var(--accent-color)";
+  syncFleet();
+};
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+function getOccupancyColor(pax){
+  return pax < 10 ? "#2ecc71" : pax < 30 ? "#f39c12" : "#e74c3c";
+}
+function estimateETA(dist){
+  const km = dist / 1000;
+  return `~${Math.max(1, Math.round(km * 3))} min`;
+}
+function getHeading(prev,curr){
+  if(!prev) return 0;
+  const toRad=d=>d*Math.PI/180;
+  const y=Math.sin(toRad(curr.lon-prev.lon))*Math.cos(toRad(curr.lat));
+  const x=Math.cos(toRad(prev.lat))*Math.sin(toRad(curr.lat))-
+          Math.sin(toRad(prev.lat))*Math.cos(toRad(curr.lat))*Math.cos(toRad(curr.lon-prev.lon));
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+function createBusIcon(heading,color,opacity,filter,eta){
+  const badge = eta ? `<div class="eta-badge">${eta}</div>` : "";
+  return L.divIcon({
+    className:"custom-div-icon",
+    html:`
+      <div class="marker-wrapper" style="opacity:${opacity};filter:${filter}">
+        ${badge}
+        <div style="transform:rotate(${heading}deg)">
+          <svg width="36" height="36" viewBox="0 0 24 24">
+            <path d="M12 2L19 21L12 17L5 21Z"
+              fill="${color}" stroke="white" stroke-width="1.2"/>
           </svg>
-        </div>`,
-      iconSize: [44, 44], iconAnchor: [22, 22]
-    });
+        </div>
+      </div>`,
+    iconSize:[36,36],
+    iconAnchor:[18,18]
+  });
+}
+function animateMarker(marker,start,end,dur){
+  const t0=performance.now();
+  function step(t){
+    const p=Math.min((t-t0)/dur,1);
+    marker.setLatLng([
+      start.lat+(end.lat-start.lat)*p,
+      start.lon+(end.lon-start.lon)*p
+    ]);
+    if(p<1) requestAnimationFrame(step);
   }
+  requestAnimationFrame(step);
+}
 
-  function getHeading(prev, curr) {
-    if (!prev) return 0;
-    const toRad = d => d * Math.PI / 180;
-    const dLon = toRad(curr.lon - prev.lon);
-    const y = Math.sin(dLon) * Math.cos(toRad(curr.lat));
-    const x = Math.cos(toRad(prev.lat)) * Math.sin(toRad(curr.lat)) - Math.sin(toRad(prev.lat)) * Math.cos(toRad(curr.lat)) * Math.cos(dLon);
-    return (toRad(Math.atan2(y, x)) * 180 / Math.PI + 360) % 360;
+/* =========================================================
+   SHARE TRIP (PHASE 4)
+   ========================================================= */
+function shareTrip(busId){
+  const link = `${location.origin}${location.pathname}?track=${busId}`;
+  navigator.clipboard.writeText(link);
+  alert("🔗 Link copied! Share it with your guardian.");
+}
+window.shareTrip = shareTrip;
+
+/* =========================================================
+   WATCH TOGGLE
+   ========================================================= */
+function toggleWatch(busId){
+  if(state.watchedBuses.has(busId)){
+    state.watchedBuses.delete(busId);
+    alert(`🔕 Stopped watching ${busId}`);
+  } else {
+    if(Notification.permission!=="granted")
+      Notification.requestPermission();
+    state.watchedBuses.add(busId);
+    alert(`🔔 You’ll be notified when ${busId} is near`);
   }
+}
+window.toggleWatch = toggleWatch;
 
-  /* --- BOOT LOGIC --- */
-  function updateBootStep(step, done) {
-    const el = document.getElementById(step);
-    if(done && el) {
-      el.style.opacity = 1; 
-      el.querySelector('.status-icon').innerHTML = "✅";
-      el.style.color = "#2ecc71";
-      el.style.fontWeight = "bold";
+/* =========================================================
+   SYNC LOOP
+   ========================================================= */
+async function syncFleet(){
+  const start=Date.now();
+  try{
+    const res=await fetch(`${API_BASE}/api/bus_locations`);
+    const data=await res.json();
+    document.getElementById("latencyMsg").textContent=(Date.now()-start)+" ms";
+    if(data.length && !state.bootComplete){
+      state.bootComplete=true;
+      document.getElementById("status-window").style.display="none";
+      document.getElementById("ui-layer").style.opacity=1;
     }
-  }
+    processFleet(data);
+  }catch{}
+}
 
-  function completeBoot() {
-    if(state.bootComplete) return;
-    state.bootComplete = true;
-    const win = document.getElementById('status-window');
-    win.style.opacity = 0; win.style.transform = "translate(-50%, -60%)";
-    setTimeout(() => { win.style.display = 'none'; }, 800);
-    document.getElementById('ui-layer').style.opacity = 1;
-  }
+/* =========================================================
+   PROCESS FLEET
+   ========================================================= */
+function processFleet(data){
+  const select=document.getElementById("busSelect");
+  const selected=select.value;
 
-  /* --- GPS LOCATOR (Updated Icon) --- */
-  document.getElementById('locateBtn').onclick = () => {
-    if (!navigator.geolocation) return alert("GPS not supported");
-    const btn = document.getElementById('locateBtn'); btn.innerHTML = "⏳";
-    navigator.geolocation.getCurrentPosition(pos => {
-      const { latitude, longitude } = pos.coords;
-      if (state.userMarker) map.removeLayer(state.userMarker);
-      
-      // NEW: User Pin Icon
-      const userIcon = L.divIcon({
-        className: 'user-pin',
-        html: `<div style="font-size:32px; filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4)); animation: bounce 1s infinite;">📍</div>`,
-        iconSize: [32, 40], iconAnchor: [16, 40], popupAnchor: [0, -40]
-      });
+  data.forEach(bus=>{
+    if(typeof bus.latitude!=="number") return;
 
-      state.userMarker = L.marker([latitude, longitude], {icon: userIcon}).bindPopup("<b>You Are Here</b>").addTo(map);
-      map.flyTo([latitude, longitude], 16);
-      btn.innerHTML = "📍";
-    }, () => { alert("GPS Access Denied"); btn.innerHTML = "📍"; });
-  };
+    // Guardian Mode: ONLY track one bus
+    if(state.guardianMode && bus.bus_id!==state.trackedBusId) return;
 
-  /* --- SYNC LOOP --- */
-  async function syncFleet() {
-    const start = Date.now();
-    try {
-      const res = await fetch(`${API_BASE}/api/bus_locations`);
-      const data = await res.json();
-      
-      document.getElementById('latencyMsg').textContent = `${Date.now() - start} ms`;
-      handleConnectionSuccess(true);
-      updateBootStep('step-server', true);
-      
-      if (data.length > 0) {
-        updateBootStep('step-stream', true);
-        setTimeout(completeBoot, 1000);
+    // Focus Mode filter
+    if(state.focusMode && state.userMarker){
+      const d=map.distance(state.userMarker.getLatLng(),[bus.latitude,bus.longitude]);
+      if(d>3000){
+        if(state.buses.has(bus.bus_id))
+          map.removeLayer(state.buses.get(bus.bus_id).marker);
+        return;
       }
-      processFleetData(data);
-    } catch (e) { handleConnectionSuccess(false); }
-    pruneFleet();
-  }
+    }
 
-  function processFleetData(data) {
-    const select = document.getElementById('busSelect');
-    const selectedId = select.value;
-    
-    data.forEach(bus => {
-      if(!state.buses.has(bus.bus_id)) select.add(new Option(bus.bus_id, bus.bus_id));
-      if (typeof bus.latitude !== 'number' || typeof bus.longitude !== 'number') return;
-      if (bus.latitude === 0 && bus.longitude === 0) return;
+    if(![...select.options].some(o=>o.value===bus.bus_id))
+      select.add(new Option(bus.bus_id,bus.bus_id));
 
-      const age = Date.now() - new Date(bus.last_updated).getTime();
-      const isStale = age > THRESHOLDS.STALE_MS;
-      const opacity = isStale ? 0.5 : 1.0;
-      const color = getOccupancyColor(bus.passenger_count);
-      const pct = Math.min(100, Math.round((bus.passenger_count / BUS_CAPACITY) * 100));
+    const age=Date.now()-new Date(bus.last_updated).getTime();
+    const isStale=age>THRESHOLDS.STALE_MS;
+    const isOffline=age>THRESHOLDS.OFFLINE_MS;
 
-      let entity = state.buses.get(bus.bus_id);
-      let heading = 0;
-      let displayOpacity = opacity;
+    let opacity=isOffline?0.3:isStale?0.6:1;
+    if(selected!=="ALL" && bus.bus_id!==selected) opacity*=0.3;
 
-      if (selectedId !== "ALL" && bus.bus_id !== selectedId) displayOpacity = 0.2;
+    const filter=isOffline?"grayscale(100%)":"none";
+    const color=isOffline?"#888":getOccupancyColor(bus.passenger_count);
 
-      if (entity) {
-        const dist = Math.sqrt(Math.pow(bus.latitude - entity.pos.lat, 2) + Math.pow(bus.longitude - entity.pos.lon, 2));
-        heading = dist > 0.00005 ? getHeading(entity.pos, { lat: bus.latitude, lon: bus.longitude }) : (entity.heading || 0);
+    let eta="";
+    let distFromUser=0;
+    if(state.userMarker){
+      distFromUser=map.distance(state.userMarker.getLatLng(),[bus.latitude,bus.longitude]);
+      eta=estimateETA(distFromUser);
+    }
 
-        entity.marker.setLatLng([bus.latitude, bus.longitude]);
-        entity.marker.setIcon(createBusIcon(heading, color, displayOpacity));
-        entity.marker.setZIndexOffset(selectedId === bus.bus_id ? 1000 : 100); 
+    // Phase 3 Notify Me trigger
+    if(state.userMarker &&
+       state.watchedBuses.has(bus.bus_id) &&
+       distFromUser<1000){
+      if(Notification.permission==="granted"){
+        new Notification(`Bus ${bus.bus_id} arriving`,{
+          body:`${Math.round(distFromUser)} meters away`
+        });
+        notifySound.play();
+      }
+      state.watchedBuses.delete(bus.bus_id);
+    }
 
-        const statusText = isStale ? "<span style='color:#f39c12'>⚠ Signal Weak</span>" : "<span style='color:#2ecc71'>● Live</span>";
-        entity.marker.setPopupContent(`
-          <div class="bus-popup">
-            <h3 style="margin:0">${bus.bus_id}</h3>
-            <div class="progress-bg"><div class="progress-fill" style="width:${pct}%; background:${color}"></div></div>
-            <div class="popup-stat"><span>${bus.passenger_count} Pax</span> <span>${pct}% Full</span></div>
-            <div style="margin-top:5px; font-size:10px; border-top:1px solid #eee; padding-top:3px;">${statusText}</div>
+    const pct=Math.min(100,Math.round(bus.passenger_count/BUS_CAPACITY*100));
+    const status=isOffline?"⚠ Offline":isStale?"⚠ Signal Weak":"● Live";
+
+    let e=state.buses.get(bus.bus_id);
+
+    if(e){
+      if(!map.hasLayer(e.marker)) e.marker.addTo(map);
+
+      const heading=getHeading(e.pos,{lat:bus.latitude,lon:bus.longitude});
+
+      animateMarker(e.marker,e.pos,{lat:bus.latitude,lon:bus.longitude},THRESHOLDS.POLL_MS);
+
+      e.marker.setIcon(createBusIcon(heading,color,opacity,filter,eta));
+
+      e.marker.setPopupContent(`
+        <div class="bus-popup">
+          <b>${bus.bus_id}</b>
+          <div class="progress-bg">
+            <div class="progress-fill" style="width:${pct}%;background:${color}"></div>
           </div>
-        `);
-        entity.pos = { lat: bus.latitude, lon: bus.longitude };
-        entity.heading = heading;
-        entity.lastSeen = Date.now();
-      } else {
-        const marker = L.marker([bus.latitude, bus.longitude], { icon: createBusIcon(0, color, displayOpacity), zIndexOffset: 100 }).addTo(map);
-        marker.bindPopup(`<b>${bus.bus_id}</b>`);
-        state.buses.set(bus.bus_id, { marker, pos: { lat: bus.latitude, lon: bus.longitude }, heading: 0, lastSeen: Date.now() });
-      }
-    });
-  }
+          <div>${bus.passenger_count} Pax (${pct}%)</div>
+          <div style="font-size:10px">${status}</div>
+          <button onclick="toggleWatch('${bus.bus_id}')">
+            ${state.watchedBuses.has(bus.bus_id)?"🔕 Stop":"🔔 Notify Me"}
+          </button>
+          <button onclick="shareTrip('${bus.bus_id}')">🔗 Share Trip</button>
+        </div>`);
 
-  function pruneFleet() {
-    let activeCount = 0;
-    state.buses.forEach((entity, id) => {
-      if (Date.now() - entity.lastSeen > THRESHOLDS.OFFLINE_MS) { 
-        map.removeLayer(entity.marker); state.buses.delete(id);
-        [...document.getElementById('busSelect').options].forEach(opt => { if(opt.value === id) opt.remove(); });
-      } else { activeCount++; }
-    });
-    document.getElementById('fleetCount').textContent = activeCount;
-    const msg = document.getElementById('systemMsg');
-    if(state.connection && state.bootComplete) {
-       if(activeCount === 0) { msg.textContent = "🟢 Online | Waiting for Fleet..."; msg.style.color = "#f39c12"; }
-       else { msg.textContent = "🟢 Tracking Active Fleet"; msg.style.color = "#2ecc71"; }
+      e.pos={lat:bus.latitude,lon:bus.longitude};
+
+      // Guardian follow-camera
+      if(state.guardianMode)
+        map.panTo([bus.latitude,bus.longitude],{animate:true});
+
+    } else {
+      const m=L.marker([bus.latitude,bus.longitude],{
+        icon:createBusIcon(0,color,opacity,filter,eta)
+      }).addTo(map);
+
+      m.bindPopup(`
+        <div class="bus-popup">
+          <b>${bus.bus_id}</b>
+          <div class="progress-bg">
+            <div class="progress-fill" style="width:${pct}%;background:${color}"></div>
+          </div>
+          <div>${bus.passenger_count} Pax (${pct}%)</div>
+          <div style="font-size:10px">${status}</div>
+          <button onclick="toggleWatch('${bus.bus_id}')">🔔 Notify Me</button>
+          <button onclick="shareTrip('${bus.bus_id}')">🔗 Share Trip</button>
+        </div>`);
+
+      state.buses.set(bus.bus_id,{marker:m,pos:{lat:bus.latitude,lon:bus.longitude}});
     }
-  }
+  });
 
-  function handleConnectionSuccess(isOnline) {
-    state.connection = isOnline;
-    const msg = document.getElementById('systemMsg');
-    if (!isOnline) { msg.textContent = "🔴 Connection Lost"; msg.style.color = "#dc2626"; }
-  }
+  document.getElementById("fleetCount").textContent=state.buses.size;
+}
 
-  /* CONTROLS */
-  document.getElementById('addBus').onclick = () => {
-    const id = `BUS-${100 + state.simCounter++}`;
-    let lat = 12.9755, lng = 79.1650;
-    const dLat = (Math.random()-0.5)*0.002, dLng = (Math.random()-0.5)*0.002;
-    setInterval(() => {
-      lat += dLat; lng += dLng;
-      fetch(`${API_BASE}/api/bus/update`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ bus_id: id, latitude: lat, longitude: lng, passenger_count: Math.floor(Math.random()*50) })}).catch(e=>{});
-    }, 2000);
-  };
+/* =========================================================
+   LOCATE ME
+   ========================================================= */
+document.getElementById("locateBtn").onclick=()=>{
+  if(!navigator.geolocation) return alert("GPS not supported");
+  const btn=document.getElementById("locateBtn");
+  btn.textContent="⏳";
+  navigator.geolocation.getCurrentPosition(pos=>{
+    if(state.userMarker) map.removeLayer(state.userMarker);
+    const icon=L.divIcon({
+      html:`<div style="font-size:32px">📍</div>`,
+      iconSize:[32,40],iconAnchor:[16,40]
+    });
+    state.userMarker=L.marker(
+      [pos.coords.latitude,pos.coords.longitude],
+      {icon}
+    ).addTo(map);
+    map.flyTo([pos.coords.latitude,pos.coords.longitude],16);
+    btn.textContent="📍";
+  },()=>btn.textContent="📍");
+};
 
-  document.getElementById('nukeSystem').onclick = async () => { try { await fetch(`${API_BASE}/api/system/reset`, { method: 'POST' }); } catch(e){} location.reload(); };
-  document.getElementById('busSelect').onchange = () => { syncFleet(); };
-  setInterval(syncFleet, THRESHOLDS.POLL_MS);
+/* =========================================================
+   SIMULATION
+   ========================================================= */
+document.getElementById("addBus").onclick=()=>{
+  const id=`BUS-${100+state.simIntervals.size}`;
+  let lat=12.9755,lng=79.1650;
+  const int=setInterval(()=>{
+    lat+=(Math.random()-0.5)*0.002;
+    lng+=(Math.random()-0.5)*0.002;
+    fetch(`${API_BASE}/api/bus/update`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        bus_id:id,
+        latitude:lat,
+        longitude:lng,
+        passenger_count:Math.floor(Math.random()*50)
+      })
+    });
+  },2000);
+  state.simIntervals.set(id,int);
+};
+
+/* =========================================================
+   RESET
+   ========================================================= */
+document.getElementById("nukeSystem").onclick=async()=>{
+  state.simIntervals.forEach(clearInterval);
+  state.simIntervals.clear();
+  await fetch(`${API_BASE}/api/system/reset`,{method:"POST"});
+  location.reload();
+};
+
+/* =========================================================
+   START
+   ========================================================= */
+setInterval(syncFleet,THRESHOLDS.POLL_MS);
+
 })();
 </script>
 </body>
