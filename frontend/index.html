@@ -2,18 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Smart Transit – Phase 4 (Safety & Reassurance)</title>
+<title>Smart Transit – Golden Master v13 (Complete)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<!-- ================= LEAFLET ================= -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css">
 
 <style>
-/* =========================================================
-   THEME VARIABLES
-   ========================================================= */
+/* ================= THEME VARIABLES ================= */
 :root {
   --bg-color: #222;
   --panel-bg: rgba(255,255,255,0.95);
@@ -28,238 +25,206 @@ body.night-mode {
 }
 
 html, body, #map {
-  height: 100%;
-  margin: 0;
-  background: var(--bg-color);
-  color: var(--text-color);
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  overflow: hidden;
+  height: 100%; margin: 0;
+  background: var(--bg-color); color: var(--text-color);
+  font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden;
 }
 
-/* =========================================================
-   HUD & PANELS
-   ========================================================= */
+/* ================= ROUTING PANEL ================= */
+#routing-wrapper {
+  position: absolute; top: 15px; left: 50%;
+  transform: translateX(-50%); width: 380px; z-index: 6000;
+}
+#routing-toggle {
+  background: var(--panel-bg); padding: 10px 18px;
+  border-radius: 999px; font-weight: 600; cursor: pointer; text-align: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+#routing-container { display: none; margin-top: 8px; }
+#routing-wrapper.open #routing-container { display: block; }
+
+.leaflet-routing-container {
+  border-radius: 12px !important; border: none !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25) !important;
+  background-color: var(--panel-bg) !important;
+  margin: 0 !important; padding: 10px !important;
+  max-height: none !important; overflow: visible !important;
+}
+.leaflet-routing-geocoders input {
+  border-radius: 6px; border: 1px solid #ccc; padding: 8px; width: 90%;
+  margin-bottom: 5px; pointer-events: auto !important;
+}
+.leaflet-routing-add-waypoint { display: none !important; }
+.leaflet-routing-remove-waypoint {
+  display: inline-block !important; color: #dc2626; font-weight: bold; cursor: pointer; margin-left: 5px;
+}
+
+.routing-actions {
+  display: flex; gap: 8px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;
+}
+.action-btn {
+  padding: 10px; border: none; border-radius: 6px;
+  font-weight: 600; cursor: pointer; font-size: 13px;
+}
+#routeSearchBtn { flex: 4; background: #2563eb; color: white; }
+#addStopBtn { flex: 1; background: #e5e7eb; color: #333; font-size: 18px; line-height: 1; }
+
+/* ================= HUD ELEMENTS ================= */
 .hud-panel {
-  position: absolute;
-  z-index: 1000;
-  backdrop-filter: blur(8px);
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-  padding: 12px;
-  background: var(--panel-bg);
+  position: absolute; z-index: 1000;
+  backdrop-filter: blur(8px); border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2); padding: 12px;
+  background: var(--panel-bg); color: var(--text-color);
 }
+.top-bar { top: 15px; left: 15px; display: flex; gap: 10px; align-items: center; }
+.legend { bottom: 90px; right: 15px; width: 140px; font-size: 12px; }
+.legend-item { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.color-box { width: 12px; height: 12px; border-radius: 2px; }
 
-/* Top bar */
-.top-bar {
-  top: 15px;
-  left: 15px;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-/* Legend */
-.legend {
-  bottom: 90px;
-  right: 15px;
-  width: 150px;
-  font-size: 12px;
-}
-.legend-item {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-.color-box {
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-}
-
-/* Controls */
-.controls {
-  bottom: 50px;
-  left: 15px;
-  width: 220px;
-}
+.controls { bottom: 50px; left: 15px; width: 220px; }
 .controls button {
-  width: 100%;
-  padding: 9px;
-  margin-top: 6px;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  color: white;
+  width: 100%; padding: 9px; margin-top: 6px;
+  border: none; border-radius: 6px; font-weight: 600; cursor: pointer; color: white;
 }
 .btn-blue { background: var(--accent-color); }
 .btn-red { background: #dc2626; }
 
-/* Locate Me */
 .btn-locate {
-  position: absolute;
-  bottom: 30px;
-  right: 20px;
-  width: 45px;
-  height: 45px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.25);
-  backdrop-filter: blur(5px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  cursor: pointer;
-  z-index: 1000;
+  position: absolute; bottom: 30px; right: 20px;
+  width: 45px; height: 45px; border-radius: 50%;
+  background: rgba(255,255,255,0.25); backdrop-filter: blur(5px);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; cursor: pointer; z-index: 1000;
 }
-
-/* Footer */
+.user-pin { background: transparent !important; border: none !important; }
 .status-footer {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  background: #111;
-  color: #888;
-  padding: 4px 15px;
-  font-size: 11px;
-  display: flex;
-  justify-content: space-between;
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: #111; color: #888; padding: 4px 15px;
+  font-size: 11px; display: flex; justify-content: space-between;
 }
 
-/* =========================================================
-   BOOT WINDOW
-   ========================================================= */
+/* ================= MARKERS & POPUPS ================= */
+.marker-wrapper { position: relative; width: 36px; height: 36px; }
+.eta-badge {
+  position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  background: #222; color: #fff; font-size: 10px; font-weight: bold;
+  padding: 2px 6px; border-radius: 4px; white-space: nowrap; z-index: 100;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 4px;
+}
+body.night-mode .eta-badge { background: #fff; color: #000; }
+
+.conf-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.conf-high { background: #2ecc71; }
+.conf-low { background: #f39c12; }
+
+.bus-popup { min-width: 180px; text-align: center; }
+.progress-bg {
+  background: #e5e7eb; height: 6px; border-radius: 3px;
+  overflow: hidden; margin: 6px 0;
+}
+.progress-fill { height: 100%; }
+.popup-actions { display: flex; gap: 5px; margin-top: 8px; }
+.popup-btn {
+  flex: 1; padding: 6px; border: none; border-radius: 4px;
+  cursor: pointer; font-size: 11px; font-weight: bold; color: white;
+}
+
+.conf-label {
+  font-size: 10px; font-weight: bold; margin-top: 4px;
+  display: inline-block; padding: 2px 6px; border-radius: 4px;
+}
+.bg-high { background: rgba(46, 204, 113, 0.15); color: #219150; }
+.bg-low { background: rgba(243, 156, 18, 0.15); color: #d35400; }
+
+.predict-text {
+  font-size: 11px; color: #666; margin: 6px 0; font-style: italic; border-top: 1px dashed #eee; padding-top: 4px;
+}
+.speed-text { font-size: 11px; color: #333; margin-bottom: 2px; font-weight: 500; }
+.speed-stale { color: #999; font-style: italic; }
+
+/* ================= BANNERS & EMERGENCY UI ================= */
+#guardian-banner {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  background: #dc2626; color: white; padding: 8px 16px;
+  border-radius: 999px; font-weight: 700; z-index: 10000;
+  display: none; animation: pulse 1.5s infinite;
+}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+#journey-banner {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  background: #2ecc71; color: white; padding: 10px 20px;
+  border-radius: 999px; font-weight: 700; z-index: 10001;
+  display: none; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);
+  animation: slideDown 0.5s ease-out;
+}
+@keyframes slideDown { from { top: -50px; } to { top: 10px; } }
+
+#emergency-btn {
+  position: absolute; top: 60px; right: 15px; 
+  background: #dc2626; color: white; border: none; padding: 8px 12px; 
+  border-radius: 8px; font-weight: bold; font-size: 12px;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4); cursor: pointer; 
+  z-index: 10000; display: none; animation: pulse-red 2s infinite;
+}
+@keyframes pulse-red { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+#expiry-banner {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85); color: white; z-index: 20000; display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+}
+
+/* ================= BOOT SCREEN ================= */
 #status-window {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--panel-bg);
-  padding: 30px;
-  width: 320px;
-  border-radius: 16px;
-  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-  z-index: 9999;
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: var(--panel-bg); padding: 30px; width: 320px;
+  border-radius: 16px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); z-index: 9999;
 }
 .loader {
-  width: 14px; height: 14px;
-  border: 3px solid #eee;
-  border-top: 3px solid var(--accent-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+  display: inline-block; width: 14px; height: 14px;
+  border: 3px solid #eee; border-top: 3px solid var(--accent-color);
+  border-radius: 50%; animation: spin 1s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* =========================================================
-   ROUTING (COLLAPSIBLE)
-   ========================================================= */
-#routing-wrapper {
-  position: absolute;
-  top: 15px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 360px;
-  z-index: 6000;
-}
-#routing-toggle {
-  background: var(--panel-bg);
-  padding: 10px 16px;
-  border-radius: 999px;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-}
-#routing-container { display:none; margin-top:8px; }
-#routing-wrapper.open #routing-container { display:block; }
-
-/* =========================================================
-   PHASE 3 – ETA BADGE
-   ========================================================= */
-.marker-wrapper {
-  position: relative;
-  width: 36px;
-  height: 36px;
-}
-.eta-badge {
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #222;
-  color: #fff;
-  font-size: 10px;
-  font-weight: bold;
-  padding: 2px 5px;
-  border-radius: 4px;
-  white-space: nowrap;
-  z-index: 100;
-}
-body.night-mode .eta-badge {
-  background: #fff;
-  color: #000;
-}
-
-/* =========================================================
-   BUS POPUP
-   ========================================================= */
-.bus-popup {
-  min-width: 170px;
-  text-align: center;
-}
-.progress-bg {
-  background:#e5e7eb;
-  height:6px;
-  border-radius:3px;
-  overflow:hidden;
-  margin:6px 0;
-}
-.progress-fill { height:100%; }
-
-/* =========================================================
-   PHASE 4 – GUARDIAN MODE BADGE
-   ========================================================= */
-#guardian-banner {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #dc2626;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-weight: 700;
-  z-index: 10000;
-  display: none;
-  animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(220,38,38,0.7); }
-  70% { box-shadow: 0 0 0 12px rgba(220,38,38,0); }
-  100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
-}
 </style>
 </head>
 
 <body>
 
 <div id="guardian-banner">📡 LIVE TRACKING ACTIVE</div>
+<div id="journey-banner">✅ Journey Completed</div>
+
+<button id="emergency-btn" onclick="shareEmergencyLink()">🚨 Share Live Location (30m)</button>
+
+<div id="expiry-banner">
+  <div style="font-size: 40px;">⚠️</div>
+  <h2>Link Expired</h2>
+  <p>This tracking link is no longer valid.</p>
+  <button onclick="location.href=location.pathname" style="margin-top:10px;padding:8px 16px;border-radius:4px;border:none;cursor:pointer;">Go to Home</button>
+</div>
 
 <div id="status-window">
   <h2>System Check</h2>
-  <div><span class="loader"></span> Connecting…</div>
+  <div><span class="loader"></span> Connecting...</div>
 </div>
 
 <div id="map"></div>
 
 <div id="routing-wrapper">
   <div id="routing-toggle">🔍 Search route</div>
-  <div id="routing-container"></div>
+  <div id="routing-container">
+    <div class="routing-actions">
+      <button id="routeSearchBtn" class="action-btn">🔍 Find Route</button>
+      <button id="addStopBtn" class="action-btn" title="Add Stop">➕</button>
+    </div>
+  </div>
 </div>
 
 <div id="ui-layer" style="opacity:0; transition:opacity 1s;">
   <div class="hud-panel top-bar">
     <strong>🚌 Command</strong>
-    <select id="busSelect">
-      <option value="ALL">Show All Fleet</option>
-    </select>
+    <select id="busSelect"><option value="ALL">Show All Fleet</option></select>
     <span>Count: <b id="fleetCount">0</b></span>
   </div>
 
@@ -284,11 +249,10 @@ body.night-mode .eta-badge {
 <div class="btn-locate" id="locateBtn">📍</div>
 
 <div class="status-footer">
-  <span id="systemMsg">Booting…</span>
+  <span id="systemMsg">Booting...</span>
   <span id="latencyMsg">-- ms</span>
 </div>
 
-<!-- ================= SCRIPTS ================= -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
@@ -296,9 +260,6 @@ body.night-mode .eta-badge {
 <script>
 (() => {
 
-/* =========================================================
-   CONFIG & STATE
-   ========================================================= */
 const API_BASE = location.hostname.includes("localhost")
   ? "http://localhost:3000"
   : "https://bus-tracker-backend-sv2m.onrender.com";
@@ -314,72 +275,127 @@ const state = {
   focusMode: false,
   theme: "day",
   watchedBuses: new Set(),
-
-  // ===== PHASE 4 =====
+  
+  // Phase 4 & 6
   guardianMode: false,
-  trackedBusId: null
+  trackedBusId: null,
+  destination: null,       
+  lastUserPos: null,       
+  lastMoveTime: Date.now(),
+  journeyEnded: false,
+  geoWatchId: null
 };
 
-/* =========================================================
-   GUARDIAN MODE DETECTION (URL PARAM)
-   ========================================================= */
+/* ================= 6.2 BOOT VALIDATION ================= */
 const params = new URLSearchParams(window.location.search);
 if (params.has("track")) {
-  state.guardianMode = true;
-  state.trackedBusId = params.get("track");
-  document.getElementById("guardian-banner").textContent =
-    `📡 TRACKING ${state.trackedBusId}`;
-  document.getElementById("guardian-banner").style.display = "block";
+  const expires = params.get("expires");
+  const now = Date.now();
+
+  if (expires && now > parseInt(expires)) {
+    document.getElementById("expiry-banner").style.display = "flex";
+    document.getElementById("emergency-btn").style.display = "none";
+    console.warn("🚫 Link expired at", new Date(parseInt(expires)));
+  } 
+  else {
+    state.guardianMode = true;
+    state.trackedBusId = params.get("track");
+    
+    document.getElementById("guardian-banner").textContent = `📡 TRACKING ${state.trackedBusId}`;
+    document.getElementById("guardian-banner").style.display = "block";
+    document.getElementById("emergency-btn").style.display = "block";
+    document.getElementById("systemMsg").textContent = "Guardian Active";
+  }
 }
 
-/* =========================================================
-   NOTIFICATIONS
-   ========================================================= */
-if (Notification.permission === "default") {
-  Notification.requestPermission();
-}
-const notifySound = new Audio(
-  "https://actions.google.com/sounds/v1/alarms/beep_short.ogg"
-);
+/* Notifications */
+if (Notification.permission === "default") Notification.requestPermission();
+const notifySound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
 
-/* =========================================================
-   MAP & TILES
-   ========================================================= */
-const dayTiles = L.tileLayer(
-  "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-);
-const nightTiles = L.tileLayer(
-  "https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png"
-);
-
-const map = L.map("map",{center:[12.9755,79.1650],zoom:14});
+/* Map Init */
+const dayTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png");
+const nightTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png");
+const map = L.map("map",{center:[12.9755,79.1650],zoom:14, keyboard: true});
 dayTiles.addTo(map);
 
-/* =========================================================
-   ROUTING
-   ========================================================= */
+/* GPS Tracking */
+if (navigator.geolocation) {
+  state.geoWatchId = navigator.geolocation.watchPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const newLatLng = new L.LatLng(lat, lng);
+
+    if (state.userMarker) {
+      state.userMarker.setLatLng(newLatLng);
+    } else {
+      const icon = L.divIcon({
+        className: 'user-pin', 
+        html: `<div style="font-size:32px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4));">📍</div>`, 
+        iconSize: [32, 40], iconAnchor: [16, 40]
+      });
+      state.userMarker = L.marker(newLatLng, {icon}).addTo(map);
+    }
+
+    if (!state.lastUserPos || map.distance(newLatLng, state.lastUserPos) > 20) {
+      state.lastUserPos = newLatLng;
+      state.lastMoveTime = Date.now();
+    }
+    
+    checkJourneyCompletion();
+  }, err => console.warn("GPS Error", err), { enableHighAccuracy: true });
+}
+
+/* Routing Logic */
 const routing = L.Routing.control({
   waypoints: [],
   routeWhileDragging: true,
-  geocoder: L.Control.Geocoder.nominatim(),
-  createMarker:()=>null
+  geocoder: L.Control.Geocoder.nominatim({geocodingQueryParams:{countrycodes:"in"}}),
+  createMarker: () => null,
+  show: false,
+  lineOptions: { styles: [{ color: '#2563eb', opacity: 0.7, weight: 6 }] },
+  addWaypoints: true 
 }).addTo(map);
 
-document.getElementById("routing-container")
-  .appendChild(routing.getContainer());
-document.getElementById("routing-toggle").onclick =
-  () => document.getElementById("routing-wrapper").classList.toggle("open");
+routing.on('routesfound', function(e) {
+  const routes = e.routes;
+  if (routes && routes.length > 0) {
+    const waypoints = routes[0].waypoints;
+    const lastPoint = waypoints[waypoints.length - 1].latLng;
+    state.destination = lastPoint;
+  }
+});
 
-/* =========================================================
-   TOGGLES
-   ========================================================= */
+const routingContainer = routing.getContainer();
+const wrapper = document.getElementById("routing-container");
+wrapper.prepend(routingContainer);
+
+L.DomEvent.disableClickPropagation(wrapper);
+L.DomEvent.disableScrollPropagation(wrapper);
+
+document.getElementById("routing-toggle").onclick = () => {
+  const panel = document.getElementById("routing-wrapper");
+  panel.classList.toggle("open");
+  if (panel.classList.contains("open")) {
+    map.keyboard.disable();
+    setTimeout(() => map.invalidateSize(), 200);
+  } else {
+    map.keyboard.enable();
+  }
+};
+
+document.getElementById("routeSearchBtn").onclick = () => routing.route();
+document.getElementById("addStopBtn").onclick = () => {
+  const waypoints = routing.getWaypoints();
+  routing.spliceWaypoints(Math.max(0, waypoints.length - 1), 0, null);
+};
+
+/* UI Toggles */
 document.getElementById("themeToggle").onclick = () => {
   document.body.classList.toggle("night-mode");
   state.theme = state.theme === "day" ? "night" : "day";
   map.removeLayer(state.theme === "night" ? dayTiles : nightTiles);
   (state.theme === "night" ? nightTiles : dayTiles).addTo(map);
-  document.getElementById("themeToggle").textContent =
-    state.theme === "day" ? "🌙 Night" : "☀️ Day";
+  document.getElementById("themeToggle").textContent = state.theme === "day" ? "🌙 Night" : "☀️ Day";
 };
 
 document.getElementById("focusToggle").onclick = () => {
@@ -390,272 +406,341 @@ document.getElementById("focusToggle").onclick = () => {
   syncFleet();
 };
 
-/* =========================================================
-   HELPERS
-   ========================================================= */
-function getOccupancyColor(pax){
-  return pax < 10 ? "#2ecc71" : pax < 30 ? "#f39c12" : "#e74c3c";
+/* Phase 5 Logic */
+function calculateConfidence(bus, age) {
+  if (age < 15000) return 'high'; 
+  return 'low';
 }
-function estimateETA(dist){
-  const km = dist / 1000;
-  return `~${Math.max(1, Math.round(km * 3))} min`;
+function getConfidenceUI(level) {
+  if (level === 'high') return { label: '✅ High Confidence', class: 'bg-high', dot: 'conf-high' };
+  return { label: '⚠️ Low Confidence', class: 'bg-low', dot: 'conf-low' };
 }
-function getHeading(prev,curr){
+
+function projectPosition(lat, lon, angle, distMeters) {
+  const R = 6371000;
+  const dist = distMeters; 
+  const brng = angle * Math.PI / 180;
+  const lat1 = lat * Math.PI / 180;
+  const lon1 = lon * Math.PI / 180;
+  const lat2 = Math.asin(Math.sin(lat1)*Math.cos(dist/R) + Math.cos(lat1)*Math.sin(dist/R)*Math.cos(brng));
+  const lon2 = lon1 + Math.atan2(Math.sin(brng)*Math.sin(dist/R)*Math.cos(lat1), Math.cos(dist/R)-Math.sin(lat1)*Math.sin(lat2));
+  return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
+}
+
+async function fetchPrediction(lat, lon, heading, elementId) {
+  try {
+    const projected = projectPosition(lat, lon, heading, 500); 
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${projected.lat}&lon=${projected.lon}`);
+    const data = await res.json();
+    const name = data.address.suburb || data.address.road || data.address.neighbourhood || "Unknown Area";
+    const el = document.getElementById(elementId);
+    if(el) el.innerHTML = `🔮 Heading towards: <b>${name}</b>`;
+  } catch(e) {
+    const el = document.getElementById(elementId);
+    if(el) el.innerHTML = `🔮 Heading towards: <i>Scanning...</i>`;
+  }
+}
+window.fetchPrediction = fetchPrediction;
+
+/* ================= 6.2 EMERGENCY SHARE LOGIC ================= */
+function shareEmergencyLink() {
+  if (!state.trackedBusId || !state.guardianMode) {
+    alert("Tracking is no longer active.");
+    return;
+  }
+
+  // 1. Calculate Expiry (30 mins from now)
+  const expiryTime = Date.now() + (30 * 60 * 1000);
+  
+  // 2. Build URL
+  const url = new URL(window.location);
+  url.searchParams.set("track", state.trackedBusId);
+  url.searchParams.set("expires", expiryTime);
+
+  // 3. Copy & Feedback
+  navigator.clipboard.writeText(url.toString());
+  alert(`🚨 EMERGENCY LINK COPIED!\n\nThis link will expire in 30 minutes.\nSend it immediately.`);
+}
+window.shareEmergencyLink = shareEmergencyLink;
+
+/* ================= 6.1 JOURNEY END LOGIC ================= */
+function checkJourneyCompletion() {
+  if (!state.guardianMode || state.journeyEnded) return;
+
+  let journeyEnded = false;
+  const now = Date.now();
+
+  if (state.userMarker && state.destination) {
+    const dist = map.distance(state.userMarker.getLatLng(), state.destination);
+    if (dist < 50) journeyEnded = true;
+  }
+
+  if (!journeyEnded && (now - state.lastMoveTime > 300000)) {
+    journeyEnded = true;
+  }
+
+  if (journeyEnded) endJourney();
+}
+
+function endJourney() {
+  if (state.journeyEnded) return;
+  state.journeyEnded = true;
+
+  state.guardianMode = false;
+  state.trackedBusId = null;
+  state.destination = null;
+  state.lastUserPos = null;
+  
+  if (state.geoWatchId !== null) {
+    navigator.geolocation.clearWatch(state.geoWatchId);
+    state.geoWatchId = null;
+  }
+
+  document.getElementById("guardian-banner").style.display = "none";
+  document.getElementById("emergency-btn").style.display = "none";
+  
+  const successBanner = document.getElementById("journey-banner");
+  successBanner.style.display = "block";
+  notifySound.play();
+  
+  document.getElementById("systemMsg").textContent = "Journey Ended";
+
+  setTimeout(() => successBanner.style.display = "none", 10000);
+}
+
+/* Helpers */
+function getOccupancyColor(pax){ return pax < 10 ? "#2ecc71" : pax < 30 ? "#f39c12" : "#e74c3c"; }
+function estimateETA(dist){ return `~${Math.max(1, Math.round(dist/1000 * 3))} min`; }
+
+function getHeading(prev, curr){
   if(!prev) return 0;
-  const toRad=d=>d*Math.PI/180;
-  const y=Math.sin(toRad(curr.lon-prev.lon))*Math.cos(toRad(curr.lat));
-  const x=Math.cos(toRad(prev.lat))*Math.sin(toRad(curr.lat))-
-          Math.sin(toRad(prev.lat))*Math.cos(toRad(curr.lat))*Math.cos(toRad(curr.lon-prev.lon));
-  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+  if(prev.lat === curr.lat && prev.lon === curr.lon) return -1;
+  const toRad = d => d * Math.PI / 180;
+  const dLon = toRad(curr.lon - prev.lon);
+  const lat1 = toRad(prev.lat);
+  const lat2 = toRad(curr.lat);
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
-function createBusIcon(heading,color,opacity,filter,eta){
-  const badge = eta ? `<div class="eta-badge">${eta}</div>` : "";
+
+function createBusIcon(heading, color, opacity, filter, eta, confDotClass){
+  const badge = eta 
+    ? `<div class="eta-badge"><span class="conf-dot ${confDotClass}"></span>${eta}</div>` 
+    : "";
   return L.divIcon({
-    className:"custom-div-icon",
-    html:`
+    className: "custom-div-icon",
+    html: `
       <div class="marker-wrapper" style="opacity:${opacity};filter:${filter}">
         ${badge}
-        <div style="transform:rotate(${heading}deg)">
+        <div style="transform:rotate(${heading}deg); transition:transform 0.5s ease">
           <svg width="36" height="36" viewBox="0 0 24 24">
-            <path d="M12 2L19 21L12 17L5 21Z"
-              fill="${color}" stroke="white" stroke-width="1.2"/>
+            <path d="M12 2L19 21L12 17L5 21Z" fill="${color}" stroke="white" stroke-width="1.2"/>
           </svg>
         </div>
       </div>`,
-    iconSize:[36,36],
-    iconAnchor:[18,18]
+    iconSize:[36,36], iconAnchor:[18,18]
   });
 }
-function animateMarker(marker,start,end,dur){
-  const t0=performance.now();
+
+function animateMarker(marker, start, end, dur){
+  const t0 = performance.now();
   function step(t){
-    const p=Math.min((t-t0)/dur,1);
+    const p = Math.min((t - t0) / dur, 1);
     marker.setLatLng([
-      start.lat+(end.lat-start.lat)*p,
-      start.lon+(end.lon-start.lon)*p
+      start.lat + (end.lat - start.lat) * p,
+      start.lon + (end.lon - start.lon) * p
     ]);
-    if(p<1) requestAnimationFrame(step);
+    if(p < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
 }
 
-/* =========================================================
-   SHARE TRIP (PHASE 4)
-   ========================================================= */
+/* Actions */
 function shareTrip(busId){
-  const link = `${location.origin}${location.pathname}?track=${busId}`;
-  navigator.clipboard.writeText(link);
-  alert("🔗 Link copied! Share it with your guardian.");
+  const url = `${location.origin}${location.pathname}?track=${busId}`;
+  navigator.clipboard.writeText(url);
+  alert("🔗 Link copied! Share with guardian.");
 }
-window.shareTrip = shareTrip;
-
-/* =========================================================
-   WATCH TOGGLE
-   ========================================================= */
 function toggleWatch(busId){
   if(state.watchedBuses.has(busId)){
-    state.watchedBuses.delete(busId);
-    alert(`🔕 Stopped watching ${busId}`);
+    state.watchedBuses.delete(busId); alert(`🔕 Stopped watching ${busId}`);
   } else {
-    if(Notification.permission!=="granted")
-      Notification.requestPermission();
-    state.watchedBuses.add(busId);
-    alert(`🔔 You’ll be notified when ${busId} is near`);
+    if(Notification.permission !== "granted") Notification.requestPermission();
+    state.watchedBuses.add(busId); alert(`🔔 Notifying when ${busId} is near`);
   }
 }
+window.shareTrip = shareTrip;
 window.toggleWatch = toggleWatch;
 
-/* =========================================================
-   SYNC LOOP
-   ========================================================= */
+/* Sync */
 async function syncFleet(){
-  const start=Date.now();
+  const start = Date.now();
   try{
-    const res=await fetch(`${API_BASE}/api/bus_locations`);
-    const data=await res.json();
-    document.getElementById("latencyMsg").textContent=(Date.now()-start)+" ms";
+    const res = await fetch(`${API_BASE}/api/bus_locations`);
+    const data = await res.json();
+    document.getElementById("latencyMsg").textContent = (Date.now() - start) + " ms";
     if(data.length && !state.bootComplete){
-      state.bootComplete=true;
-      document.getElementById("status-window").style.display="none";
-      document.getElementById("ui-layer").style.opacity=1;
+      state.bootComplete = true;
+      document.getElementById("status-window").style.display = "none";
+      document.getElementById("ui-layer").style.opacity = 1;
+      document.getElementById("systemMsg").textContent = "System Online";
     }
     processFleet(data);
   }catch{}
 }
 
-/* =========================================================
-   PROCESS FLEET
-   ========================================================= */
 function processFleet(data){
-  const select=document.getElementById("busSelect");
-  const selected=select.value;
+  const select = document.getElementById("busSelect");
+  const selected = select.value;
+  const now = Date.now();
 
-  data.forEach(bus=>{
-    if(typeof bus.latitude!=="number") return;
+  data.forEach(bus => {
+    if(typeof bus.latitude !== "number") return;
+    if(state.guardianMode && bus.bus_id !== state.trackedBusId) return;
 
-    // Guardian Mode: ONLY track one bus
-    if(state.guardianMode && bus.bus_id!==state.trackedBusId) return;
-
-    // Focus Mode filter
-    if(state.focusMode && state.userMarker){
-      const d=map.distance(state.userMarker.getLatLng(),[bus.latitude,bus.longitude]);
-      if(d>3000){
-        if(state.buses.has(bus.bus_id))
-          map.removeLayer(state.buses.get(bus.bus_id).marker);
+    if(state.focusMode && state.userMarker && bus.bus_id !== state.trackedBusId){
+      const d = map.distance(state.userMarker.getLatLng(), [bus.latitude, bus.longitude]);
+      if(d > 3000) {
+        if(state.buses.has(bus.bus_id)) map.removeLayer(state.buses.get(bus.bus_id).marker);
         return;
       }
     }
 
-    if(![...select.options].some(o=>o.value===bus.bus_id))
-      select.add(new Option(bus.bus_id,bus.bus_id));
+    if(![...select.options].some(o => o.value === bus.bus_id))
+      select.add(new Option(bus.bus_id, bus.bus_id));
 
-    const age=Date.now()-new Date(bus.last_updated).getTime();
-    const isStale=age>THRESHOLDS.STALE_MS;
-    const isOffline=age>THRESHOLDS.OFFLINE_MS;
+    const age = now - new Date(bus.last_updated).getTime();
+    const stale = age > THRESHOLDS.STALE_MS;
+    const offline = age > THRESHOLDS.OFFLINE_MS;
+    
+    const confidenceLevel = calculateConfidence(bus, age);
+    const confUI = getConfidenceUI(confidenceLevel);
 
-    let opacity=isOffline?0.3:isStale?0.6:1;
-    if(selected!=="ALL" && bus.bus_id!==selected) opacity*=0.3;
+    let opacity = offline ? 0.3 : stale ? 0.6 : 1;
+    if(selected !== "ALL" && bus.bus_id !== selected) opacity *= 0.3;
 
-    const filter=isOffline?"grayscale(100%)":"none";
-    const color=isOffline?"#888":getOccupancyColor(bus.passenger_count);
-
-    let eta="";
-    let distFromUser=0;
+    const filter = offline ? "grayscale(100%)" : "none";
+    const color = offline ? "#888" : getOccupancyColor(bus.passenger_count);
+    
+    let eta = "";
+    let distFromUser = 0;
     if(state.userMarker){
-      distFromUser=map.distance(state.userMarker.getLatLng(),[bus.latitude,bus.longitude]);
-      eta=estimateETA(distFromUser);
+      distFromUser = map.distance(state.userMarker.getLatLng(), [bus.latitude, bus.longitude]);
+      eta = estimateETA(distFromUser);
     }
 
-    // Phase 3 Notify Me trigger
-    if(state.userMarker &&
-       state.watchedBuses.has(bus.bus_id) &&
-       distFromUser<1000){
-      if(Notification.permission==="granted"){
-        new Notification(`Bus ${bus.bus_id} arriving`,{
-          body:`${Math.round(distFromUser)} meters away`
-        });
+    if(state.watchedBuses.has(bus.bus_id) && distFromUser < 1000){
+      if(Notification.permission === "granted"){
+        new Notification(`Bus ${bus.bus_id} is arriving`, { body: `${Math.round(distFromUser)}m away` });
         notifySound.play();
       }
       state.watchedBuses.delete(bus.bus_id);
     }
 
-    const pct=Math.min(100,Math.round(bus.passenger_count/BUS_CAPACITY*100));
-    const status=isOffline?"⚠ Offline":isStale?"⚠ Signal Weak":"● Live";
+    const pct = Math.min(100, Math.round(bus.passenger_count / BUS_CAPACITY * 100));
+    const status = offline ? "⚠ Offline" : stale ? "⚠ Signal Weak" : "● Live";
+    const notifyText = state.watchedBuses.has(bus.bus_id) ? "🔕 Stop" : "🔔 Notify";
 
-    let e=state.buses.get(bus.bus_id);
+    let e = state.buses.get(bus.bus_id);
+
+    let speedHTML = `<div class="speed-text speed-stale">Speed: --</div>`;
+    if (e && !stale) {
+      const distM = map.distance(e.pos, {lat: bus.latitude, lon: bus.longitude});
+      const timeDeltaS = Math.max(1, (now - e.lastUpdate) / 1000); 
+      const rawSpeed = (distM / timeDeltaS) * 3.6;
+      const displaySpeed = rawSpeed > 80 ? 0 : Math.round(rawSpeed);
+      speedHTML = `<div class="speed-text">Speed: ${displaySpeed > 1 ? displaySpeed + ' km/h' : 'Stopped'}</div>`;
+    }
+
+    let heading = 0;
+    if(e){
+       heading = getHeading(e.pos, {lat: bus.latitude, lon: bus.longitude});
+       if (heading === -1) heading = e.heading; 
+    }
+
+    const popupHTML = `
+      <div class="bus-popup" onclick="fetchPrediction(${bus.latitude}, ${bus.longitude}, ${heading}, 'pred-${bus.bus_id}')">
+        <b>${bus.bus_id}</b>
+        <div class="progress-bg"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+        <div>${bus.passenger_count} Pax (${pct}%)</div>
+        ${speedHTML}
+        <div style="font-size:10px;margin-bottom:5px">${status}</div>
+        <div class="conf-label ${confUI.class}">${confUI.label}</div>
+        <div id="pred-${bus.bus_id}" class="predict-text">Tap to see destination...</div>
+        <div class="popup-actions">
+          <button class="popup-btn btn-blue" onclick="event.stopPropagation(); toggleWatch('${bus.bus_id}')">${notifyText}</button>
+          <button class="popup-btn btn-green" onclick="event.stopPropagation(); shareTrip('${bus.bus_id}')">🔗 Share</button>
+        </div>
+      </div>`;
 
     if(e){
       if(!map.hasLayer(e.marker)) e.marker.addTo(map);
-
-      const heading=getHeading(e.pos,{lat:bus.latitude,lon:bus.longitude});
-
-      animateMarker(e.marker,e.pos,{lat:bus.latitude,lon:bus.longitude},THRESHOLDS.POLL_MS);
-
-      e.marker.setIcon(createBusIcon(heading,color,opacity,filter,eta));
-
-      e.marker.setPopupContent(`
-        <div class="bus-popup">
-          <b>${bus.bus_id}</b>
-          <div class="progress-bg">
-            <div class="progress-fill" style="width:${pct}%;background:${color}"></div>
-          </div>
-          <div>${bus.passenger_count} Pax (${pct}%)</div>
-          <div style="font-size:10px">${status}</div>
-          <button onclick="toggleWatch('${bus.bus_id}')">
-            ${state.watchedBuses.has(bus.bus_id)?"🔕 Stop":"🔔 Notify Me"}
-          </button>
-          <button onclick="shareTrip('${bus.bus_id}')">🔗 Share Trip</button>
-        </div>`);
-
-      e.pos={lat:bus.latitude,lon:bus.longitude};
-
-      // Guardian follow-camera
-      if(state.guardianMode)
-        map.panTo([bus.latitude,bus.longitude],{animate:true});
-
+      animateMarker(e.marker, e.pos, {lat: bus.latitude, lon: bus.longitude}, THRESHOLDS.POLL_MS);
+      e.marker.setIcon(createBusIcon(heading, color, opacity, filter, eta, confUI.dot));
+      if(!e.marker.isPopupOpen()) e.marker.setPopupContent(popupHTML);
+      e.pos = {lat: bus.latitude, lon: bus.longitude};
+      e.heading = heading;
+      e.lastUpdate = now;
+      if(state.guardianMode) map.panTo([bus.latitude, bus.longitude], {animate: true});
     } else {
-      const m=L.marker([bus.latitude,bus.longitude],{
-        icon:createBusIcon(0,color,opacity,filter,eta)
+      const m = L.marker([bus.latitude, bus.longitude], {
+        icon: createBusIcon(0, color, opacity, filter, eta, confUI.dot)
       }).addTo(map);
-
-      m.bindPopup(`
-        <div class="bus-popup">
-          <b>${bus.bus_id}</b>
-          <div class="progress-bg">
-            <div class="progress-fill" style="width:${pct}%;background:${color}"></div>
-          </div>
-          <div>${bus.passenger_count} Pax (${pct}%)</div>
-          <div style="font-size:10px">${status}</div>
-          <button onclick="toggleWatch('${bus.bus_id}')">🔔 Notify Me</button>
-          <button onclick="shareTrip('${bus.bus_id}')">🔗 Share Trip</button>
-        </div>`);
-
-      state.buses.set(bus.bus_id,{marker:m,pos:{lat:bus.latitude,lon:bus.longitude}});
+      m.bindPopup(popupHTML);
+      state.buses.set(bus.bus_id, {
+        marker: m,
+        pos: {lat: bus.latitude, lon: bus.longitude},
+        heading: 0,
+        lastUpdate: now
+      });
     }
   });
-
-  document.getElementById("fleetCount").textContent=state.buses.size;
+  document.getElementById("fleetCount").textContent = state.buses.size;
 }
 
-/* =========================================================
-   LOCATE ME
-   ========================================================= */
-document.getElementById("locateBtn").onclick=()=>{
+/* Simulation */
+document.getElementById("addBus").onclick = () => {
+  const id = `BUS-${100 + state.simIntervals.size}`;
+  let lat = 12.9755, lng = 79.1650;
+  const int = setInterval(() => {
+    lat += (Math.random() - 0.5) * 0.002;
+    lng += (Math.random() - 0.5) * 0.002;
+    fetch(`${API_BASE}/api/bus/update`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({bus_id: id, latitude: lat, longitude: lng, passenger_count: Math.floor(Math.random() * 50)})
+    });
+  }, 2000);
+  state.simIntervals.set(id, int);
+};
+
+document.getElementById("nukeSystem").onclick = async () => {
+  state.simIntervals.forEach(clearInterval); state.simIntervals.clear();
+  await fetch(`${API_BASE}/api/system/reset`, {method: "POST"});
+  location.href = location.pathname;
+};
+
+document.getElementById("locateBtn").onclick = () => {
   if(!navigator.geolocation) return alert("GPS not supported");
-  const btn=document.getElementById("locateBtn");
-  btn.textContent="⏳";
-  navigator.geolocation.getCurrentPosition(pos=>{
+  const btn = document.getElementById("locateBtn");
+  btn.textContent = "⏳";
+  navigator.geolocation.getCurrentPosition(pos => {
     if(state.userMarker) map.removeLayer(state.userMarker);
-    const icon=L.divIcon({
-      html:`<div style="font-size:32px">📍</div>`,
-      iconSize:[32,40],iconAnchor:[16,40]
+    const icon = L.divIcon({
+        className: 'user-pin', 
+        html: `<div style="font-size:32px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4));">📍</div>`, 
+        iconSize: [32, 40], iconAnchor: [16, 40]
     });
-    state.userMarker=L.marker(
-      [pos.coords.latitude,pos.coords.longitude],
-      {icon}
-    ).addTo(map);
-    map.flyTo([pos.coords.latitude,pos.coords.longitude],16);
-    btn.textContent="📍";
-  },()=>btn.textContent="📍");
+    state.userMarker = L.marker([pos.coords.latitude, pos.coords.longitude], {icon}).addTo(map);
+    map.flyTo([pos.coords.latitude, pos.coords.longitude], 16);
+    btn.textContent = "📍";
+  }, () => btn.textContent = "📍");
 };
 
-/* =========================================================
-   SIMULATION
-   ========================================================= */
-document.getElementById("addBus").onclick=()=>{
-  const id=`BUS-${100+state.simIntervals.size}`;
-  let lat=12.9755,lng=79.1650;
-  const int=setInterval(()=>{
-    lat+=(Math.random()-0.5)*0.002;
-    lng+=(Math.random()-0.5)*0.002;
-    fetch(`${API_BASE}/api/bus/update`,{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        bus_id:id,
-        latitude:lat,
-        longitude:lng,
-        passenger_count:Math.floor(Math.random()*50)
-      })
-    });
-  },2000);
-  state.simIntervals.set(id,int);
-};
-
-/* =========================================================
-   RESET
-   ========================================================= */
-document.getElementById("nukeSystem").onclick=async()=>{
-  state.simIntervals.forEach(clearInterval);
-  state.simIntervals.clear();
-  await fetch(`${API_BASE}/api/system/reset`,{method:"POST"});
-  location.reload();
-};
-
-/* =========================================================
-   START
-   ========================================================= */
-setInterval(syncFleet,THRESHOLDS.POLL_MS);
+setInterval(() => {
+  syncFleet();
+  checkJourneyCompletion();
+}, THRESHOLDS.POLL_MS);
 
 })();
 </script>
