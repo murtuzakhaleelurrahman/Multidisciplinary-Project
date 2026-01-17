@@ -3,6 +3,10 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/* Health / lifecycle thresholds (ms) */
+const STALE_MS = 30 * 1000; // 30 seconds => STALE
+const OFFLINE_MS = 2 * 60 * 1000; // 2 minutes => GHOST / removal
+const GC_INTERVAL_MS = 60 * 1000; // run garbage collection every 60s
 app.use(cors());
 app.use(express.json());
 
@@ -26,12 +30,12 @@ setInterval(() => {
 
   busStore.forEach((bus, id) => {
     const age = now - new Date(bus.last_updated).getTime();
-    if (age > 5 * 60 * 1000) { // 5 minutes
+    if (age > OFFLINE_MS) {
       busStore.delete(id);
-      console.log(`🗑️ Auto-removed stale bus: ${id}`);
+      console.log(`🗑️ Auto-removed offline bus: ${id} (age_ms=${age})`);
     }
   });
-}, 60 * 1000);
+}, GC_INTERVAL_MS);
 
 /* =========================================================
    HEALTH CHECK
@@ -44,7 +48,21 @@ app.get("/", (req, res) => {
    FETCH FLEET DATA
    ========================================================= */
 app.get("/api/bus_locations", (req, res) => {
-  res.json(Array.from(busStore.values()));
+  const now = Date.now();
+  const buses = [];
+
+  busStore.forEach((bus) => {
+    const age_ms = now - new Date(bus.last_updated).getTime();
+
+    // Treat anything beyond OFFLINE_MS as a ghost and don't return it
+    if (age_ms > OFFLINE_MS) return;
+
+    const health = age_ms <= STALE_MS ? "live" : "stale";
+
+    buses.push({ ...bus, age_ms, health });
+  });
+
+  res.json(buses);
 });
 
 /* =========================================================
@@ -78,7 +96,14 @@ function getDistance(lat1, lon1, lat2, lon2) {
    - Protects frontend animation from bad data
 */
 app.post("/api/bus/update", (req, res) => {
-  const { bus_id, latitude, longitude, passenger_count } = req.body;
+  const {
+    bus_id,
+    latitude,
+    longitude,
+    passenger_count,
+    monitored,
+    current_stop_id
+  } = req.body;
   const now = Date.now();
 
   /* 1. Strict validation */
@@ -123,6 +148,8 @@ app.post("/api/bus/update", (req, res) => {
     latitude,
     longitude,
     passenger_count: passenger_count || 0,
+    monitored: monitored === true,
+    current_stop_id: current_stop_id || null,
     last_updated: new Date().toISOString()
   });
 
