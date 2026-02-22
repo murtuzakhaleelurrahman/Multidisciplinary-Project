@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: smart-transit-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3100
+      - key: MONGODB_URI
+        sync: false
+        # Set this in Render dashboard - your MongoDB Atlas connection string

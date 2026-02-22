@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Transit - Backend Configuration</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #2563eb;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #64748b;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    .info-box {
+      background: #f1f5f9;
+      border-left: 4px solid #2563eb;
+      padding: 16px;
+      margin-bottom: 24px;
+      border-radius: 4px;
+    }
+    .info-box strong {
+      color: #1e293b;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .info-box code {
+      background: #e2e8f0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 13px;
+      color: #dc2626;
+      font-family: 'Courier New', monospace;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #334155;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    input[type="url"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.2s;
+      font-family: 'Courier New', monospace;
+    }
+    input[type="url"]:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+    .button-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    button {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-save {
+      background: #2563eb;
+      color: white;
+    }
+    .btn-save:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(37,99,235,0.4);
+    }
+    .btn-clear {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+    .btn-clear:hover {
+      background: #e2e8f0;
+    }
+    .btn-test {
+      background: #10b981;
+      color: white;
+    }
+    .btn-test:hover {
+      background: #059669;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+    .status.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #10b981;
+      display: block;
+    }
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #ef4444;
+      display: block;
+    }
+    .status.info {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #3b82f6;
+      display: block;
+    }
+    .current {
+      margin-top: 20px;
+      padding: 16px;
+      background: #fef3c7;
+      border-radius: 8px;
+      border: 1px solid #fbbf24;
+    }
+    .current strong {
+      color: #92400e;
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    .current code {
+      color: #78350f;
+      font-size: 14px;
+      word-break: break-all;
+    }
+    .examples {
+      margin-top: 20px;
+      font-size: 13px;
+      color: #64748b;
+    }
+    .examples strong {
+      display: block;
+      margin-bottom: 8px;
+      color: #334155;
+    }
+    .examples div {
+      margin-bottom: 4px;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Backend Configuration</h1>
+    <p class="subtitle">Configure your Smart Transit backend API URL</p>
+
+    <div class="info-box">
+      <strong>⚠️ Backend Not Deployed Yet?</strong>
+      Follow the <code>DEPLOYMENT_GUIDE.md</code> to deploy your backend to Render or Railway (FREE).
+      Once deployed, enter the URL below.
+    </div>
+
+    <label for="api-url">Backend API URL</label>
+    <input 
+      type="url" 
+      id="api-url" 
+      placeholder="https://your-backend.onrender.com"
+      spellcheck="false">
+
+    <div class="button-group">
+      <button class="btn-save" onclick="saveConfig()">💾 Save Configuration</button>
+      <button class="btn-test" onclick="testConnection()">🔌 Test Connection</button>
+      <button class="btn-clear" onclick="clearConfig()">🗑️ Clear</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div id="current" class="current" style="display: none;">
+      <strong>Currently Using:</strong>
+      <code id="current-url"></code>
+    </div>
+
+    <div class="examples">
+      <strong>Example URLs:</strong>
+      <div>• Render: <code>https://smart-transit-backend.onrender.com</code></div>
+      <div>• Railway: <code>https://smart-transit-backend-production.up.railway.app</code></div>
+      <div>• Localhost: <code>http://127.0.0.1:3100</code></div>
+    </div>
+  </div>
+
+  <script>
+    // Load current configuration on page load
+    window.addEventListener('load', () => {
+      const currentAPI = localStorage.getItem('CUSTOM_API_URL');
+      if (currentAPI) {
+        document.getElementById('api-url').value = currentAPI;
+        document.getElementById('current-url').textContent = currentAPI;
+        document.getElementById('current').style.display = 'block';
+      }
+    });
+
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = `status ${type}`;
+      setTimeout(() => {
+        status.style.display = 'none';
+      }, 5000);
+    }
+
+    function saveConfig() {
+      const url = document.getElementById('api-url').value.trim();
+      
+      if (!url) {
+        showStatus('❌ Please enter a backend URL', 'error');
+        return;
+      }
+
+      // Validate URL format
+      try {
+        new URL(url);
+      } catch (e) {
+        showStatus('❌ Invalid URL format. Must start with http:// or https://', 'error');
+        return;
+      }
+
+      // Remove trailing slash
+      const cleanURL = url.replace(/\/$/, '');
+      
+      localStorage.setItem('CUSTOM_API_URL', cleanURL);
+      
+      document.getElementById('current-url').textContent = cleanURL;
+      document.getElementById('current').style.display = 'block';
+      
+      showStatus('✅ Configuration saved! Refresh your Smart Transit app to use the new backend.', 'success');
+    }
+
+    async function testConnection() {
+      const url = document.getElementById('api-url').value.trim() || localStorage.getItem('CUSTOM_API_URL');
+      
+      if (!url) {
+        showStatus('❌ Please enter a backend URL first', 'error');
+        return;
+      }
+
+      const cleanURL = url.replace(/\/$/, '');
+      showStatus('⏳ Testing connection...', 'info');
+
+      try {
+        const response = await fetch(`${cleanURL}/api/health`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const mongoStatus = data.mongodb || 'unknown';
+          showStatus(`✅ Backend is online! MongoDB: ${mongoStatus}`, 'success');
+        } else {
+          showStatus(`⚠️ Backend responded with status ${response.status}. Check your URL.`, 'error');
+        }
+      } catch (error) {
+        showStatus(`❌ Cannot reach backend. Error: ${error.message}`, 'error');
+      }
+    }
+
+    function clearConfig() {
+      if (confirm('Clear saved backend configuration?')) {
+        localStorage.removeItem('CUSTOM_API_URL');
+        document.getElementById('api-url').value = '';
+        document.getElementById('current').style.display = 'none';
+        showStatus('🗑️ Configuration cleared. App will use default backend URL.', 'info');
+      }
+    }
+
+    // Allow Enter key to save
+    document.getElementById('api-url').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        saveConfig();
+      }
+    });
+  </script>
+</body>
+</html>

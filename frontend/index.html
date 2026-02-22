@@ -1436,9 +1436,18 @@
   const isLocal = host === "localhost" || host === "127.0.0.1" || host === "";
   // Force 127.0.0.1 to avoid Windows localhost resolution issues
   const localHost = "127.0.0.1";
-  const API_BASE = isLocal
+  
+  // Allow API URL override via localStorage (for testing/deployment)
+  const customAPI = localStorage.getItem('CUSTOM_API_URL');
+  const defaultAPI = isLocal
     ? `http://${localHost}:3100`
-    : "https://bus-tracker-backend-sv2m.onrender.com";
+    : "https://bus-tracking-and-occupancy-system.onrender.com";
+  const API_BASE = customAPI || defaultAPI;
+  
+  // Show which API we're using (dev mode only)
+  if (window.SMART_TRANSIT_DEBUG || customAPI) {
+    console.log(`🔌 API Base: ${API_BASE}${customAPI ? ' (CUSTOM)' : ''}`);
+  }
 
   /* =============== CENTRALIZED CONFIGURATION =============== */
   const CONFIG = {
@@ -2035,10 +2044,15 @@
         const text = await response.text();
         const trimmed = text.trim();
         const looksLikeHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html');
-        const hint = looksLikeHtml
-          ? 'Backend returned HTML. Check CONFIG.API_BASE and ensure the backend is running.'
-          : 'Backend returned an unexpected response.';
-        throw new Error(hint);
+        
+        if (looksLikeHtml) {
+          console.error('❌ Backend not found at:', CONFIG.API_BASE);
+          console.log('📖 Deployment Guide: See DEPLOYMENT_GUIDE.md');
+          console.log('🔧 Quick fix: Set custom API URL with:');
+          console.log('   localStorage.setItem("CUSTOM_API_URL", "https://your-backend-url.com")');
+          throw new Error('Backend not deployed. See console for deployment instructions.');
+        }
+        throw new Error('Backend returned an unexpected response.');
       }
 
       if (!response.ok) {
@@ -2050,7 +2064,18 @@
       localStorage.setItem('transit_session', JSON.stringify(state.currentUser));
       applyAccessControl();
     } catch (error) {
-      UI.toast(`❌ ${error.message}`, 'error');
+      console.error('Login error:', error);
+      let errorMsg = error.message;
+      
+      // Network errors (backend unreachable)
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        errorMsg = '⚠️ Cannot reach backend. Deploy backend first (see DEPLOYMENT_GUIDE.md)';
+        console.error('🔌 Trying to connect to:', CONFIG.API_BASE);
+        console.log('📋 To configure a custom backend URL, run in console:');
+        console.log('   localStorage.setItem("CUSTOM_API_URL", "https://your-backend.onrender.com")');
+      }
+      
+      UI.toast(`❌ ${errorMsg}`, 'error');
     } finally {
       if (btn) {
         btn.textContent = originalText;
