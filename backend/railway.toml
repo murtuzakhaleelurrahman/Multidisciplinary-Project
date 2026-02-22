@@ -1,0 +1,13 @@
+# Smart Transit Backend Configuration
+# Automatically detected by Railway.app
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "node index.js"
+healthcheckPath = "/api/health"
+restartPolicyType = "ON_FAILURE"
+
+[env]
+NODE_ENV = "production"
