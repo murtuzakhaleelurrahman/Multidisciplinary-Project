@@ -6,6 +6,16 @@
    ```bash
    cd backend
    npm install
+   
+   # Configure MongoDB (required)
+   cp .env.example .env
+   # Edit .env and set your MONGODB_URI
+   
+   # Seed data (optional but recommended)
+   node seed_traffic.js
+   node seed_users.js
+   
+   # Start server
    npm start
    ```
 
@@ -21,6 +31,8 @@
    ```
 
 4. **Open console (F12)** and see tests run automatically ✅
+
+> **Note**: If you don't have MongoDB, see [SETUP_GUIDE.md](backend/SETUP_GUIDE.md) for MongoDB Atlas (free cloud option)
 
 ---
 

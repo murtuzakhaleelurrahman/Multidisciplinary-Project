@@ -2,16 +2,32 @@
   <html lang="en">
   <head>
   <meta charset="utf-8" />
-  <title>Smart Transit – Golden Master v30 (Routing Fixed)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Smart Transit – Real-Time Bus Tracking & Route Planning</title>
+<meta name="description" content="Smart Transit provides real-time GPS bus tracking, intelligent route planning, and ETA alerts for VIT Vellore campus transit. Track your campus ride instantly with live monitoring and analytics.">
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="canonical" href="https://vit-smart-transit.app/">
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#2563eb">
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css">
+<!-- PRODUCTION NOTE: SRI hashes added for CDN security. Generate with: curl -s URL | openssl dgst -sha384 -binary | openssl base64 -A -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1/H9HSvXqRCTZo8wuGtoQVsHxePO23fj6j6Kv3KTmY1K0kqzhZdQ=="
+      crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"
+      crossorigin="anonymous">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"
+      crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"
+        crossorigin="anonymous" defer></script>
 
-  <!-- Debug Mode Loader -->
-  <script>
-  (function(){
+<!-- Debug Mode Loader (Development Only) -->
+<script>
+(function(){
+  // Only enable debug mode in development (localhost/127.0.0.1)
+  const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== '';
+  
+  if (!isProduction) {
     const params = new URLSearchParams(window.location.search);
     const debug = params.has('debug') || localStorage.getItem('smartTransitDebug') === '1';
     if (debug) {
@@ -28,8 +44,9 @@
         }, 500);
       });
     }
-  })();
-  </script>
+  }
+})();
+</script>
 
   <style>
   /* ================= THEME VARIABLES ================= */
@@ -52,6 +69,148 @@
     height: 100%; margin: 0;
     background: var(--bg-color); color: var(--text-color);
     font-family: 'Segoe UI', system-ui, sans-serif; overflow: visible;
+  }
+
+  /* Skip link for accessibility - visible on focus */
+  .skip-link:focus {
+    left: 0;
+    top: 0;
+    outline: 2px solid #fff;
+  }
+
+  .planner-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 6px;
+    font-size: 14px;
+  }
+
+  /* Portal Background & Layout */
+  #login-portal.hero-layout {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 58, 138, 0.85) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 50000;
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+
+  /* Top Navigation */
+  .portal-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 40px;
+    background: transparent;
+  }
+  .nav-brand {
+    font-size: 20px; font-weight: 800; color: #fff; letter-spacing: -0.5px;
+  }
+  .nav-links {
+    display: flex; gap: 16px;
+  }
+  .nav-btn {
+    background: transparent; border: none; color: #fff;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    padding: 8px 16px; border-radius: 6px; transition: background 0.2s;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.1); }
+  .nav-btn.admin-btn {
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+
+  /* Hero Section */
+  .portal-hero {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 0 20px; margin-top: -80px;
+    pointer-events: none;
+  }
+  .portal-hero > * { pointer-events: auto; }
+  .portal-hero input, .portal-hero button { pointer-events: auto; }
+  .hero-title {
+    font-size: 48px; font-weight: 800; color: #fff;
+    margin: 0 0 12px 0; text-align: center; letter-spacing: -1px;
+  }
+  .hero-subtitle {
+    font-size: 18px; color: #cbd5e1; margin: 0 0 40px 0;
+    text-align: center; max-width: 600px; line-height: 1.5;
+  }
+
+  /* Horizontal Search Bar (The redBus look) */
+  .hero-search-bar {
+    display: flex; align-items: center;
+    background: #fff; border-radius: 32px;
+    padding: 8px; width: 100%; max-width: 800px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+  }
+  .search-input-group {
+    display: flex; align-items: center; flex: 1;
+    padding: 8px 16px;
+  }
+  .search-icon {
+    font-size: 20px; margin-right: 12px; opacity: 0.7;
+  }
+  .hero-input {
+    border: none; outline: none; width: 100%;
+    font-size: 16px; font-weight: 500; color: #1e293b;
+    background: transparent;
+  }
+  .hero-input::placeholder { color: #94a3b8; font-weight: 400; }
+  .search-divider {
+    width: 1px; height: 32px; background: #e2e8f0;
+  }
+  .hero-search-btn {
+    background: #dc2626;
+    color: #fff; border: none; font-size: 16px; font-weight: 700;
+    padding: 16px 32px; border-radius: 28px; cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap; margin-left: 8px;
+  }
+  .hero-search-btn:hover { background: #b91c1c; transform: translateY(-1px); }
+
+  /* Ensure the hero suggestions appear ABOVE the portal background */
+  #heroSuggestions {
+    z-index: 50005 !important;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    margin-top: 10px;
+  }
+
+  #heroSuggestions .suggestion-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+    color: #334155;
+  }
+
+  #heroSuggestions .suggestion-item:last-child {
+    border-bottom: none;
+  }
+
+  /* Login Form Modal */
+  .portal-login {
+    display: none; position: fixed;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: #fff; border-radius: 16px; padding: 32px;
+    width: 320px; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    z-index: 50001; animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .portal-login.active { display: block; }
+
+  @keyframes popIn {
+    0% { opacity: 0; transform: translate(-50%, -45%) scale(0.95); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  /* Responsive adjustments for mobile */
+  @media (max-width: 768px) {
+    .hero-search-bar { flex-direction: column; border-radius: 16px; padding: 16px; gap: 8px; }
+    .search-divider { width: 100%; height: 1px; }
+    .hero-search-btn { width: 100%; margin-left: 0; margin-top: 8px; }
+    .hero-title { font-size: 32px; }
   }
 
   #map { height: 100%; margin: 0; overflow: hidden; }
@@ -108,6 +267,9 @@
   .legend { font-size: 12px; width: 140px; }
   .legend-item { display: flex; justify-content: space-between; margin-bottom: 4px; }
   .color-box { width: 8px; height: 8px; border-radius: 2px; opacity: 0.9; }
+
+  #heatmap-overlay { pointer-events: auto; }
+  .heatmap-legend { font-size: 12px; width: 200px; }
 
   /* Bottom Left Controls */
   .controls { position: absolute; bottom: 40px; left: 15px; width: 220px; z-index: 1000; }
@@ -223,7 +385,20 @@
   .leaflet-routing-geocoders > div { position: relative; margin-bottom: 8px; }
 
   /* ================= MARKERS & POPUPS ================= */
-  .marker-wrapper { position: relative; width: 36px; height: 36px; }
+  .marker-wrapper {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 50%;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    padding: 2px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .marker-wrapper svg { width: 28px; height: 28px; display: block; }
   .eta-badge {
     position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
     background: #222; color: #fff; font-size: 10px; font-weight: bold;
@@ -272,8 +447,8 @@
   
   .popup-actions { display: flex; gap: 5px; margin-top: 8px; }
   .popup-btn { flex: 1; padding: 6px; font-size: 11px; }
-  .btn-traffic { background: #f59e0b !important; }
-  .btn-traffic:hover { background: #d97706 !important; }
+  .btn-traffic { background: #f59e0b; }
+  .btn-traffic:hover { background: #d97706; }
   
   /* Toast notification animation */
   @keyframes slideIn {
@@ -374,14 +549,35 @@
     z-index: 2;
   }
 
+  .tab-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    background: transparent;
+    font-weight: 700;
+    color: #666;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .tab-btn.active {
+    color: var(--accent-color);
+    border-bottom: 2px solid var(--accent-color);
+    background: rgba(37, 99, 235, 0.05);
+  }
+
+  .tab-content { display: none; padding: 5px; }
+  .tab-content.active { display: block; }
+
   /* ================ VISUAL HIERARCHY: 3-LEVEL SYSTEM ================ */
   /* Level 1: Primary panels (Route Planner/Stop Summary, Monitoring Active) */
   .panel-primary {
-    padding: 12px 14px !important;
-    background: linear-gradient(135deg, rgba(37,99,235,0.04) 0%, rgba(59,130,246,0.02) 100%) !important;
-    border-left: 4px solid var(--accent-color) !important;
-    margin: -8px -12px 8px -12px !important;
-    padding-left: 10px !important;
+    padding: 12px 14px;
+    padding-left: 10px;
+    background: linear-gradient(135deg, rgba(37,99,235,0.04) 0%, rgba(59,130,246,0.02) 100%);
+    border-left: 4px solid var(--accent-color);
+    margin: -8px -12px 8px -12px;
   }
   .panel-primary strong {
     font-weight: 800;
@@ -390,10 +586,10 @@
 
   /* Level 2: Secondary panels (Route Comparison) */
   .panel-secondary {
-    padding: 10px 12px !important;
-    background: transparent !important;
-    border-top: 1px solid rgba(0,0,0,0.08) !important;
-    margin-top: 8px !important;
+    padding: 10px 12px;
+    background: transparent;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    margin-top: 8px;
   }
   .panel-secondary strong {
     font-weight: 700;
@@ -404,7 +600,7 @@
   .panel-utility {
     opacity: 0.85;
     font-size: 12px;
-    padding: 8px 10px !important;
+    padding: 8px 10px;
   }
   .panel-utility strong {
     font-weight: 600;
@@ -673,16 +869,288 @@
     border-radius: 50%; animation: spin 1s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* QR Laser Scanner Animation */
+  .scanner-laser {
+    position: absolute;
+    width: 80%;
+    height: 3px;
+    background: #2ecc71;
+    left: 10%;
+    top: 20px;
+    box-shadow: 0 0 12px #2ecc71;
+    animation: scan 2s infinite linear alternate;
+    z-index: 10;
+  }
+  @keyframes scan {
+    0% { top: 20px; }
+    100% { top: 180px; }
+  }
+
+  /* ================= INFO SECTION STYLES ================= */
+  .portal-info-section {
+    width: 100%;
+    max-width: 1000px;
+    margin: 60px auto 0 auto;
+    padding: 0 20px 40px 20px;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .info-container {
+    margin-bottom: 60px;
+  }
+
+  .info-heading {
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 16px;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+
+  .info-text {
+    font-size: 16px;
+    color: #cbd5e1;
+    line-height: 1.6;
+    max-width: 800px;
+  }
+
+  /* Features Grid */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+  }
+
+  .feature-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 24px;
+    transition: transform 0.2s, background 0.2s;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .feature-icon {
+    font-size: 32px;
+    margin-bottom: 16px;
+  }
+
+  .feature-card h4 {
+    font-size: 18px;
+    margin: 0 0 8px 0;
+    color: #fff;
+  }
+
+  .feature-card p {
+    font-size: 14px;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* Steps List */
+  .steps-list {
+    color: #cbd5e1;
+    font-size: 16px;
+    line-height: 1.8;
+    padding-left: 20px;
+  }
+  .steps-list strong {
+    color: #fff;
+  }
+
+  /* Footer */
+  .portal-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 40px;
+    margin-top: 40px;
+  }
+
+  .footer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 32px;
+    margin-bottom: 40px;
+  }
+
+  .footer-grid h4 {
+    color: #fff;
+    font-size: 16px;
+    margin: 0 0 16px 0;
+  }
+
+  .footer-grid ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .footer-grid ul li {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .footer-grid ul li:hover {
+    color: #3b82f6;
+  }
+
+  .footer-bottom {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 20px;
+    text-align: center;
+    color: #64748b;
+    font-size: 13px;
+  }
   </style>
   </head>
 
   <body>
+
+  <!-- Skip navigation for accessibility -->
+  <a href="#map" class="skip-link" style="position:absolute;left:-9999px;z-index:999999;padding:1em;background:#000;color:#fff;text-decoration:none;font-weight:bold;">Skip to main content</a>
 
   <div id="guardian-banner">📡 LIVE TRACKING ACTIVE</div>
   <div id="journey-banner">✅ Journey Completed</div>
   <div id="safe-arrival-banner" style="display:none;position: absolute; top: 50px; left: 50%; transform: translateX(-50%); background: #10b981; color: white; padding: 10px 16px; border-radius: 999px; z-index:10002; font-weight:700;">✅ Safe Arrival Confirmed</div>
 
   <button class="ui-btn btn-emergency" data-action="emergency-share">🚨 Share Live Location (30m)</button>
+
+  <div id="login-portal" class="hero-layout">
+    <header class="portal-nav">
+      <div class="nav-brand">VIT Smart Transit</div>
+      <div class="nav-links">
+        <button id="nav-login-user" class="nav-btn" onclick="console.log('TEST CLICK USER'); window.safeShowLoginForm('user')">Commuter Login</button>
+        <button id="nav-login-admin" class="nav-btn admin-btn" onclick="console.log('TEST CLICK ADMIN'); window.safeShowLoginForm('admin')">Admin Console</button>
+        <button id="login-signout" class="nav-btn" data-action="logout" style="display:none;">Sign out</button>
+      </div>
+    </header>
+
+    <div class="portal-hero">
+      <h1 class="hero-title">Track your campus ride instantly.</h1>
+      <p class="hero-subtitle">Real-time GPS tracking and route planning across Vellore and Melvisharam.</p>
+
+      <div class="hero-search-bar">
+        <div class="search-input-group">
+          <span class="search-icon">🚌</span>
+          <input type="text" id="heroRouteFrom" placeholder="From (e.g., VIT Gate 1)" class="hero-input" autocomplete="off">
+        </div>
+        <div class="search-divider"></div>
+        <div class="search-input-group">
+          <span class="search-icon">📍</span>
+          <input type="text" id="heroRouteTo" placeholder="To (e.g., Vellore New Bus Stand)" class="hero-input" autocomplete="off">
+        </div>
+        <button class="hero-search-btn" onclick="window.handleHeroSearch()">Find Buses</button>
+      </div>
+
+      <div id="heroSuggestions" class="global-dropdown" aria-hidden="true"></div>
+    </div>
+
+    <div class="portal-info-section">
+
+      <div class="info-container">
+        <h2 class="info-heading">VIT Smart Transit: Next-Gen Campus Commuting</h2>
+        <p class="info-text">
+          VIT Smart Transit is the premier bus tracking and fleet management platform designed specifically for campus mobility.
+          Whether you are heading to the main gate, Katpadi Junction, or navigating through Vellore, our system ensures a seamless,
+          predictable, and safe journey.
+        </p>
+      </div>
+
+      <div class="info-container">
+        <h2 class="info-heading">Why Choose Smart Transit?</h2>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon">📡</div>
+            <h4>Live Bus Tracking</h4>
+            <p>Track your bus in real-time with sub-second latency and plan your journey efficiently without waiting at the stop.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🚦</div>
+            <h4>Traffic-Aware ETAs</h4>
+            <p>Our smart routing engine analyzes segment traffic and historical data to give you highly accurate arrival times.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🚨</div>
+            <h4>Crowdsourced Alerts</h4>
+            <p>Help your fellow commuters by reporting delays or heavy traffic with our one-touch reporting system.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">🛡️</div>
+            <h4>Guardian Mode</h4>
+            <p>Share a live tracking link with friends or family so they know exactly when you'll arrive at your destination.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-container" style="background: rgba(255,255,255,0.03); border-radius: 16px; padding: 32px;">
+        <h2 class="info-heading">How to Track Your Ride</h2>
+        <ol class="steps-list">
+          <li><strong>Search Routes:</strong> Enter your starting point and destination in the search bar above.</li>
+          <li><strong>Select Your Bus:</strong> View the live map to see available buses and their current occupancy levels.</li>
+          <li><strong>Monitor Arrival:</strong> Set an alert threshold to get notified exactly when your bus is approaching.</li>
+          <li><strong>Travel Safely:</strong> Board your bus and share your live status if needed.</li>
+        </ol>
+      </div>
+
+      <footer class="portal-footer">
+        <div class="footer-grid">
+          <div>
+            <h4>Popular Stops</h4>
+            <ul>
+              <li onclick="document.getElementById('heroRouteTo').value='VIT Gate 1 (Main Gate)'; document.getElementById('login-portal').scrollTo({top:0, behavior:'smooth'});">VIT Main Gate</li>
+              <li onclick="document.getElementById('heroRouteTo').value='Katpadi Junction Bus Stop'; document.getElementById('login-portal').scrollTo({top:0, behavior:'smooth'});">Katpadi Junction</li>
+              <li onclick="document.getElementById('heroRouteTo').value='Vellore New Bus Stand'; document.getElementById('login-portal').scrollTo({top:0, behavior:'smooth'});">Vellore New Bus Stand</li>
+              <li onclick="document.getElementById('heroRouteTo').value='Green Circle'; document.getElementById('login-portal').scrollTo({top:0, behavior:'smooth'});">Green Circle</li>
+            </ul>
+          </div>
+          <div>
+            <h4>System Info</h4>
+            <ul>
+              <li onclick="window.handleFooterAction('fleet')">Live Fleet Status</li>
+              <li onclick="window.handleFooterAction('planner')">Route Map</li>
+              <li onclick="window.handleFooterAction('heatmap')">Traffic Heatmap</li>
+            </ul>
+          </div>
+          <div>
+            <h4>About</h4>
+            <ul>
+              <li onclick="window.showAboutModal('docs')">Project Documentation</li>
+              <li onclick="window.showAboutModal('report')">Report an Issue</li>
+              <li onclick="window.safeShowLoginForm('admin'); document.getElementById('login-portal').scrollTo({top:0, behavior:'smooth'});">Admin Console</li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>VIT Smart Transit System. Designed for efficient fleet management and routing.</p>
+        </div>
+      </footer>
+
+      <div id="about-modal" class="portal-login" style="display:none; position: fixed; z-index: 50005;">
+        <h3 id="about-title" style="margin-top:0; color:#111;">Title</h3>
+        <div id="about-content" style="font-size:14px; color:#555; line-height:1.6; margin-bottom:24px;">Content</div>
+        <button class="ui-btn btn-gray" style="width:100%; padding: 12px;" onclick="document.getElementById('about-modal').classList.remove('active'); setTimeout(() => document.getElementById('about-modal').style.display='none', 300)">Close</button>
+      </div>
+    </div>
+
+    <div id="login-form" class="portal-login">
+      <h3 id="login-title" style="margin-top:0; color:#111;">Transit Login</h3>
+      <div style="font-size:13px; color:#666; margin-bottom:16px;">Enter your credentials to continue.</div>
+      <input type="text" id="login-user" placeholder="Username" class="planner-input" style="margin-bottom:10px;">
+      <input type="password" id="login-pass" placeholder="Password" class="planner-input" style="margin-bottom:16px;">
+      <button id="login-submit" class="ui-btn btn-blue" style="width:100%; padding: 12px;">Enter Dashboard</button>
+      <button id="login-back" class="ui-btn btn-gray" style="width:100%; margin-top:10px; padding: 12px;" onclick="document.getElementById('login-form').classList.remove('active')">Cancel</button>
+    </div>
+  </div>
 
   <!-- Right-side expandable side panel (consolidated controls) -->
   <aside id="side-panel" tabindex="0" aria-label="Controls Panel">
@@ -691,114 +1159,207 @@
         <strong>Smart Transit</strong>
         <span style="font-size:12px;opacity:0.6">Control Center</span>
       </div>
-      <div class="panel-handle" title="Expand panel">▸</div>
+      <div style="display: flex; border-bottom: 1px solid rgba(0,0,0,0.1); background: var(--panel-bg-solid);">
+        <button id="tab-fleet" class="tab-btn active" onclick="switchTab('fleet')">🚌 Fleet</button>
+        <button id="tab-planner" class="tab-btn" onclick="switchTab('planner')">🧭 Planner</button>
+        <button id="tab-tickets" class="tab-btn" onclick="switchTab('tickets')">🎟️ Tickets</button>
+        <button id="tab-analytics" class="tab-btn admin-feature" onclick="switchTab('analytics')" style="display:none;">📈 Analytics</button>
+      </div>
 
-      <!-- 1) Route Search (moved) -->
-      <section class="panel-section" id="panel-routing">
-        <div class="hud-panel">
-          <div style="font-weight:800; font-size:15px; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
-            <span>🧭</span> Route Planner
-          </div>
-          <div id="route-planner-container">
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              <input id="routeFrom" placeholder="From location..." class="planner-input" style="padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:14px; box-sizing:border-box;">
-              <input id="routeTo" placeholder="To location..." class="planner-input" style="padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:14px; box-sizing:border-box;">
-              <button class="ui-btn btn-blue" data-action="find-route" style="width:100%; margin-top:4px;">
-                🔍 Find Best Route
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 2) Bus / Stop Controls -->
-      <section class="panel-section" id="panel-commands">
-          <div class="hud-panel top-bar" style="margin-bottom:8px;">
-            <strong>🚌 Command</strong>
-            <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
-              <select id="busSelect" style="width:100%;box-sizing:border-box;"><option value="ALL">All Fleet</option></select>
-              <div id="stopSearchWrap" style="position:relative;">
-                <input id="stopSearch" type="text" placeholder="🔍 Search stop name…" style="width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #ddd;" />
-              </div>
-              <button id="monitorStopBtn" class="ui-btn btn-indigo" style="width:100%;">🔔 Monitor</button>
-              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding-top:4px;color:var(--text-color);">
-                <span id="dataFreshness">● <span id="dataFreshText">Data: --</span></span>
-                <span><b id="fleetCount">0</b></span>
+      <div id="content-fleet" class="tab-content active">
+        <!-- 1) Bus / Stop Controls -->
+        <section class="panel-section" id="panel-commands">
+            <div class="hud-panel top-bar" style="margin-bottom:8px;">
+              <strong>🚌 Command</strong>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+                <select id="busSelect" style="width:100%;box-sizing:border-box;"><option value="ALL">All Fleet</option></select>
+                <div id="stopSearchWrap" style="position:relative;">
+                  <input id="stopSearch" type="text" placeholder="🔍 Search stop name…" style="width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #ddd;" />
+                </div>
+                <button id="monitorStopBtn" class="ui-btn btn-indigo" style="width:100%;">🔔 Monitor</button>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding-top:4px;color:var(--text-color);">
+                  <span id="dataFreshness">● <span id="dataFreshText">Data: --</span></span>
+                  <span><b id="fleetCount">0</b></span>
+                </div>
               </div>
             </div>
-          </div>
-      </section>
+        </section>
 
-      <!-- 3) Stop Summary Card -->
-      <section class="panel-section" id="panel-stop-summary">
-        <div id="stop-summary-card" class="hud-panel" style="display: none; min-width: unset;">
-          <div style="font-weight:700;margin-bottom:6px">📍 Stop Summary</div>
-          <div style="font-size:13px;line-height:1.4">
-            <div><b id="stop-name">—</b></div>
-            <div>Best Bus: <span id="stop-best-bus">—</span></div>
-            <div>Arrival: <span id="stop-best-eta">--</span></div>
-            <div>Confidence: <span id="stop-confidence">—</span></div>
+        <!-- 2) Stop Summary Card -->
+        <section class="panel-section" id="panel-stop-summary">
+          <div id="stop-summary-card" class="hud-panel" style="display: none; min-width: unset;">
+            <div style="font-weight:700;margin-bottom:6px">📍 Stop Summary</div>
+            <div style="font-size:13px;line-height:1.4">
+              <div><b id="stop-name">—</b></div>
+              <div>Best Bus: <span id="stop-best-bus">—</span></div>
+              <div>Arrival: <span id="stop-best-eta">--</span></div>
+              <div>Confidence: <span id="stop-confidence">—</span></div>
 
-            <!-- User-configurable ETA alert lead time -->
-            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd;">
-              <label style="font-size: 11px; font-weight: 600;">Alert me when</label>
-              <div style="display: flex; gap: 5px; margin-top: 4px;">
-                <input type="number" id="alertThreshold" value="5" min="1" max="30"
-                       style="width: 50px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
-                <span style="font-size: 11px; align-self: center;">mins away</span>
+              <!-- User-configurable ETA alert lead time -->
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd;">
+                <label style="font-size: 11px; font-weight: 600;">Alert me when</label>
+                <div style="display: flex; gap: 5px; margin-top: 4px;">
+                  <input type="number" id="alertThreshold" value="5" min="1" max="30"
+                         style="width: 50px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
+                  <span style="font-size: 11px; align-self: center;">mins away</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- 3.5) Route Comparison (Estimated) -->
-      <section class="panel-section" id="panel-route-compare">
-        <div id="route-compare-card" class="hud-panel" style="display: block; min-width: unset;">
-          <div style="font-weight:700;margin-bottom:6px">🧭 Route Comparison</div>
-          <div id="route-compare-body">
-            <!-- Content injected by updateRouteComparison() -->
+        <!-- 3) Monitoring Status HUD -->
+        <section class="panel-section" id="panel-monitor">
+          <div id="monitor-hud" class="hud-panel" style="display: block; min-width: unset;">
+            <div style="font-weight:700;margin-bottom:6px">🔔 Monitoring Status</div>
+            <div id="monitor-body">
+              <!-- Content injected by updateMonitorHUD() -->
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- 4) Monitoring Status HUD -->
-      <section class="panel-section" id="panel-monitor">
-        <div id="monitor-hud" class="hud-panel" style="display: block; min-width: unset;">
-          <div style="font-weight:700;margin-bottom:6px">🔔 Monitoring Status</div>
-          <div id="monitor-body">
-            <!-- Content injected by updateMonitorHUD() -->
+        <!-- 4) Occupancy Legend -->
+        <section class="panel-section" id="panel-legend">
+          <div class="hud-panel legend" style="margin-top:10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="legend-toggle">
+              <b>📊 Occupancy</b>
+              <span class="legend-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+            </div>
+            <div id="legend-body" style="display: none; margin-top: 6px;">
+              <div class="legend-item"><div class="color-box" style="background:#06b6d4"></div> Seats Avail</div>
+              <div class="legend-item"><div class="color-box" style="background:#3b82f6"></div> Standing</div>
+              <div class="legend-item"><div class="color-box" style="background:#4c1d95"></div> Packed</div>
+              <div class="legend-item"><div class="color-box" style="background:#888"></div> Offline</div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- 5) Occupancy Legend -->
-      <section class="panel-section" id="panel-legend">
-        <div class="hud-panel legend" style="margin-top:10px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="legend-toggle">
-            <b>📊 Occupancy</b>
-            <span class="legend-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+        <!-- System Controls (moved inside panel for single control surface) -->
+        <section class="panel-section" id="panel-system">
+          <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">⚙️ Actions</div>
+          <div class="hud-panel controls">
+            <div style="display:flex; gap:6px; flex-direction:column;">
+              <button class="ui-btn btn-blue" data-action="toggle-theme">🌙 Night</button>
+              <button id="focusBtn" class="ui-btn btn-blue" data-action="toggle-focus">🎯 Focus</button>
+              <button class="ui-btn btn-gray" data-action="logout" style="border:1px solid #ccc; color:#333;">🚪 Logout</button>
+              
+              <button class="ui-btn btn-blue" data-action="add-bus" style="display:none;">➕ Random Bus</button>
+              
+              <div id="admin-extended-controls" style="display:none; margin-top: 8px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,0.1);">
+                <div style="font-size: 11px; font-weight: 700; color: #f97316; margin-bottom: 8px; text-transform: uppercase;">🛠️ Advanced Admin</div>
+                
+                <select id="admin-route-select" style="width:100%; margin-bottom:8px; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px;">
+                  <option value="RANDOM">Random Route</option>
+                  <option value="ROUTE_1">Route 1 (VIT ⇄ Old Bus Stand)</option>
+                  <option value="ROUTE_2">Route 2 (Bagayam)</option>
+                  <option value="ROUTE_3">Route 3 (Sathuvachari)</option>
+                  <option value="ROUTE_4">Route 4 (Shenbakkam)</option>
+                  <option value="ROUTE_5">Route 5 (Katpadi Local)</option>
+                </select>
+                
+                <div style="display:flex; gap:6px;">
+                  <button class="ui-btn btn-green" data-action="spawn-route-bus" style="flex:1;">🚌 Spawn</button>
+                  <button class="ui-btn btn-gray" data-action="clear-sims" style="flex:1; color:#dc2626; border:1px solid #dc2626; background:transparent;">🧹 Stop Sims</button>
+                </div>
+                
+                <button class="ui-btn btn-indigo" data-action="broadcast-alert" style="width:100%; margin-top:6px;">📢 Broadcast Alert</button>
+              </div>
+
+              <button class="ui-btn btn-red" data-action="reset-system" style="display:none; margin-top:10px;">☢️ Hard Reset Backend</button>
+            </div>
           </div>
-          <div id="legend-body" style="display: none; margin-top: 6px;">
-            <div class="legend-item"><div class="color-box" style="background:#2ecc71"></div> Low</div>
-            <div class="legend-item"><div class="color-box" style="background:#f39c12"></div> Med</div>
-            <div class="legend-item"><div class="color-box" style="background:#e74c3c"></div> High</div>
-            <div class="legend-item"><div class="color-box" style="background:#888"></div> Offline</div>
+        </section>
+      </div>
+
+      <div id="content-planner" class="tab-content">
+        <!-- 1) Route Search (moved) -->
+        <section class="panel-section" id="panel-routing">
+          <div id="routing-wrapper" class="open">
+            <div id="routing-toggle" data-action="toggle-routing" role="button" aria-expanded="true" aria-controls="routing-container">
+              <div class="rt-icon">🧭</div>
+              <div class="rt-label">Route Planner</div>
+              <div style="font-size:12px; opacity:0.6;">Toggle</div>
+            </div>
+            <div id="routing-container">
+              <div class="routing-header">
+                <span>Route Planner</span>
+                <button class="btn-close" data-action="close-routing" aria-label="Close Route Planner">✕</button>
+              </div>
+              <div id="route-planner-container" class="hud-panel" style="margin: 0; box-shadow: none;">
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <input id="routeFrom" placeholder="From location..." class="planner-input" style="padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:14px; box-sizing:border-box;">
+                  <input id="routeTo" placeholder="To location..." class="planner-input" style="padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:14px; box-sizing:border-box;">
+                </div>
+              </div>
+              <div class="routing-actions">
+                <button class="ui-btn btn-blue action-btn btn-route" data-action="find-route">🔍 Find Best Route</button>
+                <button class="ui-btn btn-gray action-btn btn-add-stop" data-action="add-stop" aria-label="Add stop">＋</button>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
-      <!-- System Controls (moved inside panel for single control surface) -->
-      <section class="panel-section" id="panel-system">
-        <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">⚙️ Actions</div>
-        <div class="hud-panel controls">
-          <div style="display:flex; gap:6px; flex-direction:column;">
-            <button class="ui-btn btn-blue" data-action="toggle-theme">🌙 Night</button>
-            <button id="focusBtn" class="ui-btn btn-blue" data-action="toggle-focus">🎯 Focus</button>
-            <button class="ui-btn btn-blue" data-action="add-bus">➕ Add Bus</button>
-            <button class="ui-btn btn-red" data-action="reset-system">☢️ Reset System</button>
+        </section>
+
+        <!-- 2) Route Comparison (Estimated) -->
+        <section class="panel-section" id="panel-route-compare">
+          <div id="route-compare-card" class="hud-panel" style="display: block; min-width: unset;">
+            <div style="font-weight:700;margin-bottom:6px">🧭 Route Comparison</div>
+            <div id="route-compare-body">
+              <!-- Content injected by updateRouteComparison() -->
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
+
+      <div id="content-tickets" class="tab-content">
+        <section class="panel-section" id="panel-wallet">
+          <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Active Passes</div>
+          
+          <div class="hud-panel" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; border: none; padding: 16px; margin-bottom: 12px; cursor: pointer; position: relative; overflow: hidden; box-shadow: 0 8px 20px rgba(59,130,246,0.3); transition: transform 0.2s;" onclick="window.showQRModal('Student Monthly Pass')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; position: relative; z-index: 2;">
+              <div>
+                <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8;">Verified</div>
+                <div style="font-size: 18px; font-weight: bold; margin-top: 2px;">VIT Student Pass</div>
+              </div>
+              <div style="background: rgba(255,255,255,0.2); backdrop-filter: blur(4px); padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Zone A</div>
+            </div>
+            <div style="font-size: 12px; opacity: 0.9; position: relative; z-index: 2;">Valid till: Mar 31, 2026</div>
+            <div style="position: absolute; right: -20px; bottom: -20px; opacity: 0.1; font-size: 80px; z-index: 1;">🚌</div>
+          </div>
+
+          <div class="hud-panel" style="border: 2px dashed rgba(0,0,0,0.15); padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onclick="window.showQRModal('Single Journey - Katpadi')" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background='transparent'">
+            <div>
+              <div style="font-weight: bold; color: var(--text-color);">Single Journey</div>
+              <div style="font-size: 12px; color: #666; margin-top: 2px;">Vellore ⇄ Katpadi</div>
+            </div>
+            <div style="font-weight: bold; font-size: 18px; color: var(--accent-color);">₹15</div>
+          </div>
+        </section>
+      </div>
+
+      <div id="content-analytics" class="tab-content">
+        <section class="panel-section" id="panel-charts">
+          <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Live Fleet Telemetry</div>
+          
+          <div class="hud-panel" style="padding: 10px; background: #fff;">
+            <div style="font-size: 11px; font-weight: bold; color: #888; margin-bottom: 5px;">Average Fleet Speed (km/h)</div>
+            <div style="position: relative; height: 160px; width: 100%;">
+              <canvas id="fleetSpeedChart"></canvas>
+            </div>
+          </div>
+
+          <div class="hud-panel" style="padding: 15px 10px; margin-top: 12px; display: flex; justify-content: space-around; background: #fff;">
+            <div style="text-align: center;">
+              <div id="stat-active-buses" style="font-size: 28px; font-weight: 900; color: var(--accent-color);">0</div>
+              <div style="font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase;">Active Buses</div>
+            </div>
+            <div style="width: 1px; background: #eee;"></div>
+            <div style="text-align: center;">
+              <div id="stat-avg-pax" style="font-size: 28px; font-weight: 900; color: #10b981;">0</div>
+              <div style="font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase;">Avg Passengers</div>
+            </div>
+          </div>
+        </section>
+      </div>
 
     </div>
 
@@ -822,7 +1383,25 @@
     <div><span class="loader"></span> Connecting...</div>
   </div>
 
-  <div id="map"></div>
+  <div id="map" role="main" aria-label="Interactive transit map"></div>
+
+  <div id="heatmap-overlay" class="hud-panel controls">
+    <div class="heatmap-legend">
+      <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="heatmap-toggle">
+        <b>🧯 Traffic Heatmap</b>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button id="heatmap-visibility" class="ui-btn btn-green" data-action="toggle-heatmap" style="padding:4px 8px; font-size:12px;">On</button>
+          <span class="heatmap-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+        </div>
+      </div>
+      <div id="heatmap-body" style="display: block; margin-top: 6px;">
+        <div class="legend-item"><div class="color-box" style="background:#16a34a"></div> Smooth (&gt;25 km/h)</div>
+        <div class="legend-item"><div class="color-box" style="background:#f97316"></div> Slow (15-25 km/h)</div>
+        <div class="legend-item"><div class="color-box" style="background:#dc2626"></div> Heavy (&lt;15 km/h)</div>
+        <div class="legend-item" style="opacity:0.7; font-size:11px;">Dashed = heavy traffic</div>
+      </div>
+    </div>
+  </div>
 
   <div class="ui-stack">
     <button class="btn-locate-pill" data-action="locate-user">📍 Locate Me</button>
@@ -831,17 +1410,20 @@
     </div>
   </div>
 
-  <!-- routing-wrapper moved into side panel -->
-  </div>
+  
 
-  <div class="status-footer">
+  <div class="status-footer" role="status" aria-live="polite" aria-atomic="true">
     <span id="systemMsg">Booting...</span>
     <span id="latencyMsg">-- ms</span>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha512-BwHfrr4c9kmRkLw6iXFdzcdWV/PGkVgiIyIWLLlTSXzWDz5xxcbWEJzJqv1w4lbQwT2q4wJ1TBzXXBK3TiKxMA=="
+          crossorigin="anonymous" defer></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"
+          crossorigin="anonymous" defer></script>
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"
+          crossorigin="anonymous" defer></script>
 
   <script>
   (() => {
@@ -850,8 +1432,12 @@
   // CONFIGURATION & INITIALIZATION
   // ==========================================
   
-  const API_BASE = location.hostname.includes("localhost")
-    ? "http://localhost:3000"
+  const host = location.hostname;
+  const isLocal = host === "localhost" || host === "127.0.0.1" || host === "";
+  // Force 127.0.0.1 to avoid Windows localhost resolution issues
+  const localHost = "127.0.0.1";
+  const API_BASE = isLocal
+    ? `http://${localHost}:3100`
     : "https://bus-tracker-backend-sv2m.onrender.com";
 
   /* =============== CENTRALIZED CONFIGURATION =============== */
@@ -889,6 +1475,44 @@
   const AUTO_SELECT_RADIUS = CONFIG.AUTO_SELECT_RADIUS;
   const AUTO_FOCUS_PAUSE_MS = CONFIG.AUTO_FOCUS_PAUSE;
   const USER_SELECTION_HOLD_MS = CONFIG.USER_SELECTION_HOLD;
+
+  // Traffic-aware ETA modifier (fetched from backend)
+  let trafficModifier = 1.0;
+  let trafficStatus = "unknown";
+  let segmentTrafficMap = {}; // Segment-specific speeds: { "VLR_001->VLR_002": 15.5 }
+
+  async function syncTrafficProfile(){
+    try{
+      // Fetch Global Profile (Backup)
+      const res = await fetch(`${API_BASE}/api/traffic_profile`);
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if(typeof data.global_speed_modifier === 'number') trafficModifier = data.global_speed_modifier;
+      if(typeof data.status === 'string') trafficStatus = data.status;
+      
+      // Fetch Segment Profile (Primary - Level 2 Intelligence)
+      try {
+        const resSegments = await fetch(`${API_BASE}/api/traffic/segments`);
+        if(resSegments.ok) {
+          const dataSegments = await resSegments.json();
+          if (dataSegments.segments) {
+            segmentTrafficMap = dataSegments.segments;
+            if(window.SMART_TRANSIT_DEBUG){
+              console.log(`🚦 Traffic Profile Loaded: global=${trafficModifier}, segments=${dataSegments.count || Object.keys(segmentTrafficMap).length}`);
+            }
+          }
+        }
+      } catch(segErr) {
+        if(window.SMART_TRANSIT_DEBUG) console.warn('Segment traffic fetch failed:', segErr);
+      }
+      
+      if(window.SMART_TRANSIT_DEBUG && Object.keys(segmentTrafficMap).length === 0){
+        console.log(`🚦 Traffic Profile Loaded: modifier=${trafficModifier} status=${trafficStatus} (no segment data yet)`);
+      }
+    }catch(e){
+      if(window.SMART_TRANSIT_DEBUG) console.warn('Traffic profile fetch failed:', e);
+    }
+  }
 
   /* =============== SECURITY & ERROR HANDLING UTILITIES =============== */
   const Security = {
@@ -945,8 +1569,23 @@
     }
   };
 
+  function setAdminFeatureVisibility(isAdmin) {
+    const adminFeatures = [
+      document.querySelector('[data-action="add-bus"]'),
+      document.querySelector('[data-action="reset-system"]')
+    ];
+
+    adminFeatures.forEach(el => {
+      if (el) el.style.display = isAdmin ? 'block' : 'none';
+    });
+  }
+
   /* =============== ENHANCED ERROR HANDLING =============== */
   const ErrorHandler = {
+    lastError: null,
+    lastErrorTime: 0,
+    errorCooldown: 10000, // Only show same error once per 10 seconds
+    
     // Wrap fetch calls with error handling
     async safeFetch(url, options = {}) {
       try {
@@ -965,8 +1604,19 @@
     handleError(error, context = 'Error') {
       console.error(`${context}:`, error);
       
+      const now = Date.now();
+      const errorKey = `${context}:${error.message}`;
+      
+      // Prevent spamming: only show same error once per cooldown period
+      if (this.lastError === errorKey && (now - this.lastErrorTime) < this.errorCooldown) {
+        return;
+      }
+      
+      this.lastError = errorKey;
+      this.lastErrorTime = now;
+      
       if(error.message.includes('Failed to fetch')) {
-        UI.toast('⚠️ No internet connection', 'error');
+        UI.toast('⚠️ Backend unavailable', 'error');
         UI.updateStatus('Offline', true);
       } else if(error.message.includes('HTTP')) {
         UI.toast(`⚠️ Server error: ${error.message}`, 'error');
@@ -1234,8 +1884,224 @@
     // Crowdsourced delay reporting (NEW)
     delayReports: new Map(),  // busId -> { count, timestamp }
     userReports: new Set(),   // Set of busIds user has already reported
-    flaggedBuses: new Set()   // Buses with 3+ delay reports
+    flaggedBuses: new Set(),   // Buses with 3+ delay reports
+    currentUser: null, // Stores { username, role }
+    savedSession: null, // Cached session for optional continue
+    loginRoleIntent: null,
+
+    // Traffic heatmap UI state
+    heatmapEnabled: true
   };
+
+  setAdminFeatureVisibility(false);
+
+  /* ================= 0. SESSION & GLOBAL INIT ================= */
+  // Safe mode reset: add ?logout=1 or ?reset=1 to clear saved session
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('logout') || urlParams.has('reset')) {
+    console.log('🧹 Force clearing session...');
+    localStorage.removeItem('transit_session');
+    window.history.replaceState({}, document.title, window.location.pathname);
+    state.currentUser = null;
+    state.savedSession = null;
+  }
+
+  // 1. Check for existing session on boot
+  const savedSession = localStorage.getItem('transit_session');
+  if (savedSession) {
+    try {
+      state.savedSession = JSON.parse(savedSession);
+      window.addEventListener('load', () => {
+        const continueWrap = document.getElementById('saved-session');
+        const continueBtn = document.getElementById('login-continue');
+        const roleGrid = document.getElementById('role-selection');
+        const loginForm = document.getElementById('login-form');
+        if (state.savedSession && continueWrap && continueBtn) {
+          continueBtn.textContent = `Continue as ${state.savedSession.username}`;
+          continueWrap.style.display = 'block';
+          if (roleGrid) roleGrid.style.display = 'none';
+          if (loginForm) loginForm.classList.remove('active');
+
+          if (!document.getElementById('switch-link')) {
+            const switchLink = document.createElement('div');
+            switchLink.id = 'switch-link';
+            switchLink.innerHTML = '<a href="#" style="font-size:12px;color:#666;text-decoration:underline;">Switch Account / Log Out</a>';
+            switchLink.style.textAlign = 'center';
+            switchLink.style.marginTop = '10px';
+            switchLink.style.cursor = 'pointer';
+            switchLink.onclick = (e) => {
+              e.preventDefault();
+              localStorage.removeItem('transit_session');
+              state.savedSession = null;
+              continueWrap.style.display = 'none';
+              if (roleGrid) roleGrid.style.display = 'flex';
+            };
+            continueWrap.appendChild(switchLink);
+          }
+        }
+      });
+    } catch(e) { localStorage.removeItem('transit_session'); }
+  }
+
+  // 2. Expose functions to Global Scope so HTML buttons can click them
+  window.showLoginForm = (role) => {
+    console.log('🟢 showLoginForm called with role:', role);
+    state.loginRoleIntent = role;
+
+    const savedBanner = document.getElementById('saved-session');
+    if (savedBanner) savedBanner.style.display = 'none';
+
+    // Auto-fill username based on role for quick access
+    const userInput = document.getElementById('login-user');
+    if (userInput) {
+      userInput.value = role === 'admin' ? 'admin' : 'user';
+    }
+
+    // SAFELY check if the old role-selection grid exists before hiding it
+    const roleSelection = document.getElementById('role-selection');
+    if (roleSelection) {
+      roleSelection.style.display = 'none';
+    }
+
+    // Show the modal
+    const loginForm = document.getElementById('login-form');
+    console.log('📋 loginForm element:', loginForm);
+    if (loginForm) {
+      console.log('📋 loginForm classList before:', loginForm.classList.toString());
+      loginForm.classList.add('active');
+      loginForm.style.display = 'block';
+      console.log('📋 loginForm classList after:', loginForm.classList.toString());
+    }
+
+    const loginTitle = document.getElementById('login-title');
+    if (loginTitle) {
+      loginTitle.textContent = role === 'admin' ? 'Admin Login' : 'Commuter Login';
+    }
+  };
+
+  window.showRoleSelection = () => {
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+      loginForm.classList.remove('active');
+      loginForm.style.display = 'none';
+    }
+
+    // SAFELY check if the old role-selection grid exists before showing it
+    const roleSelection = document.getElementById('role-selection');
+    if (roleSelection) {
+      roleSelection.style.display = 'flex';
+    }
+
+    const savedBanner = document.getElementById('saved-session');
+    if (savedBanner && state.savedSession) savedBanner.style.display = 'block';
+  };
+
+  const navLoginUser = document.getElementById('nav-login-user');
+  const navLoginAdmin = document.getElementById('nav-login-admin');
+  if (navLoginUser) navLoginUser.addEventListener('click', () => window.safeShowLoginForm('user'));
+  if (navLoginAdmin) navLoginAdmin.addEventListener('click', () => window.safeShowLoginForm('admin'));
+
+  window.handleLogin = async () => {
+    const userInput = document.getElementById('login-user');
+    const passInput = document.getElementById('login-pass');
+    const username = userInput ? userInput.value.trim() : '';
+    const password = passInput ? passInput.value : '';
+
+    if (!username) {
+      UI.toast('Please enter a username.', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('login-submit');
+    const originalText = btn ? btn.textContent : '';
+    if (btn) {
+      btn.textContent = 'Verifying...';
+      btn.disabled = true;
+    }
+
+    try {
+      const response = await fetch(`${CONFIG.API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      let data = null;
+
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        const trimmed = text.trim();
+        const looksLikeHtml = trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html');
+        const hint = looksLikeHtml
+          ? 'Backend returned HTML. Check CONFIG.API_BASE and ensure the backend is running.'
+          : 'Backend returned an unexpected response.';
+        throw new Error(hint);
+      }
+
+      if (!response.ok) {
+        throw new Error(data && data.error ? data.error : 'Login failed');
+      }
+
+      state.currentUser = { username: data.username, role: data.role };
+      state.savedSession = null;
+      localStorage.setItem('transit_session', JSON.stringify(state.currentUser));
+      applyAccessControl();
+    } catch (error) {
+      UI.toast(`❌ ${error.message}`, 'error');
+    } finally {
+      if (btn) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    }
+  };
+
+  window.handleLogout = () => {
+    localStorage.removeItem('transit_session');
+    location.reload();
+  };
+
+  // Single Source of Truth for feature gating
+  function applyAccessControl() {
+    if (!state.currentUser) return;
+
+    const isAdmin = state.currentUser.role === 'admin';
+
+    // Admin features visibility
+    const adminFeatures = document.querySelectorAll('[data-action="add-bus"], [data-action="reset-system"], .admin-feature');
+    adminFeatures.forEach(el => el.style.display = isAdmin ? 'block' : 'none');
+
+    // Show extended admin controls
+    const extendedAdmin = document.getElementById('admin-extended-controls');
+    if (extendedAdmin) extendedAdmin.style.display = isAdmin ? 'block' : 'none';
+
+    // Portal visibility
+    const portal = document.getElementById('login-portal');
+    if (portal) portal.style.display = 'none';
+
+    const portalSignout = document.getElementById('login-signout');
+    if (portalSignout) portalSignout.style.display = 'inline-flex';
+
+    UI.toast(`Welcome back, ${state.currentUser.username}!`, 'success');
+  }
+
+  const userCard = document.getElementById('btn-user-portal');
+  const adminCard = document.getElementById('btn-admin-portal');
+  const loginSubmit = document.getElementById('login-submit');
+  const loginBack = document.getElementById('login-back');
+  const loginContinue = document.getElementById('login-continue');
+  if (userCard) userCard.addEventListener('click', () => window.showLoginForm('user'));
+  if (adminCard) adminCard.addEventListener('click', () => window.showLoginForm('admin'));
+  if (loginSubmit) loginSubmit.addEventListener('click', () => window.handleLogin());
+  if (loginBack) loginBack.addEventListener('click', () => window.showRoleSelection());
+  if (loginContinue) loginContinue.addEventListener('click', () => {
+    if (!state.savedSession) return;
+    state.currentUser = state.savedSession;
+    applyAccessControl();
+  });
 
   /* ================= BOOT VALIDATION ================= */
   const params = new URLSearchParams(window.location.search);
@@ -1282,6 +2148,54 @@
   const map = L.map("map",{center:[12.9755,79.1650],zoom:14, zoomControl: false, keyboard: true});
   L.control.zoom({position: 'topleft'}).addTo(map);
   dayTiles.addTo(map);
+
+  const trafficLayers = L.layerGroup().addTo(map);
+
+  async function renderTrafficHeatmap() {
+    if (!state.heatmapEnabled) {
+      trafficLayers.clearLayers();
+      return;
+    }
+
+    const data = await ErrorHandler.safeFetch(`${API_BASE}/api/traffic/heatmap`);
+    if (!Array.isArray(data)) return;
+
+    trafficLayers.clearLayers();
+
+    const opacity = document.body.classList.contains('night-mode') ? 0.75 : 0.6;
+
+    data.forEach(item => {
+      if (!item || !item._id || typeof item.avgSpeed !== 'number') return;
+      const [startId, endId] = item._id.split('->');
+      const startStop = getStopData(startId);
+      const endStop = getStopData(endId);
+
+      if (startStop && endStop) {
+        const color = item.avgSpeed > 25 ? '#16a34a' : item.avgSpeed > 15 ? '#f97316' : '#dc2626';
+
+        const line = L.polyline([
+          [startStop.latitude, startStop.longitude],
+          [endStop.latitude, endStop.longitude]
+        ], {
+          color: color,
+          weight: 5,
+          opacity: opacity,
+          dashArray: item.avgSpeed < 15 ? '10, 10' : undefined
+        }).addTo(trafficLayers);
+
+        line.bindTooltip(`Traffic: ${Math.round(item.avgSpeed)} km/h`);
+      }
+    });
+  }
+
+  function updateHeatmapToggleUI() {
+    const btn = document.getElementById('heatmap-visibility');
+    if (!btn) return;
+    btn.textContent = state.heatmapEnabled ? 'On' : 'Off';
+    btn.classList.toggle('btn-green', state.heatmapEnabled);
+    btn.classList.toggle('btn-gray', !state.heatmapEnabled);
+    btn.setAttribute('aria-pressed', state.heatmapEnabled ? 'true' : 'false');
+  }
 
   /* ================ RENDER STATIC STOPS ================ */
   // Helper: find nearest stop to a Leaflet LatLng or {lat,lng}
@@ -1354,20 +2268,66 @@
    */
   function computeWeightedETA(distanceMeters, computedSpeed = null, staleness = false) {
     let speed = CONFIG.AVG_BUS_SPEED; // Default fallback: 18 km/h
+    const hasLiveSpeed = computedSpeed && computedSpeed > 0 && computedSpeed < 100;
     
-    if (computedSpeed && computedSpeed > 0 && computedSpeed < 100) {
+    if (hasLiveSpeed) {
       // Use actual measured speed from real backend data
       speed = computedSpeed;
     } else if (staleness) {
       // Increase estimate if data is stale (reduce confidence in measurements)
       speed = CONFIG.AVG_BUS_SPEED * 0.7;
     }
+
+    // Apply traffic modifier (predictive layer)
+    if (!hasLiveSpeed) {
+      speed = speed * trafficModifier;
+    } else if (trafficModifier < 1) {
+      speed = speed * Math.max(0.85, trafficModifier);
+    }
     
     return computeETAinMinutes(distanceMeters, speed);
   }
 
+  /**
+   * Level 2 Intelligence: Segment-Based Traffic Awareness
+   * 
+   * Priority hierarchy:
+   * 1. Live Speed (most accurate, real-time measurement)
+   * 2. Segment Historical Speed (learned patterns for specific road)
+   * 3. Global Traffic Modifier (fallback when no historical data)
+   * 
+   * @param {number} distMeters - Distance remaining in meters
+   * @param {string} segmentId - Format: "StopA->StopB" or null
+   * @param {number|null} liveSpeed - Real-time speed from telemetry (km/h)
+   * @param {boolean} staleness - True if data is stale
+   * @returns {number} ETA in minutes (minimum 1)
+   */
+  function computeSmartETA(distMeters, segmentId, liveSpeed = null, staleness = false) {
+    let speedToUse = CONFIG.AVG_BUS_SPEED; // Default: 18 km/h
+    const hasLiveSpeed = liveSpeed && liveSpeed > 1 && liveSpeed < 100;
+
+    // Priority 1: Use Live Speed (if fresh and valid)
+    if (hasLiveSpeed && !staleness) {
+      speedToUse = liveSpeed;
+      if (window.SMART_TRANSIT_DEBUG) console.debug(`[ETA] Using live speed: ${speedToUse} km/h`);
+    } 
+    // Priority 2: Use Historical Segment Speed (if we know this road)
+    else if (segmentId && segmentTrafficMap[segmentId]) {
+      speedToUse = segmentTrafficMap[segmentId];
+      if (window.SMART_TRANSIT_DEBUG) console.debug(`[ETA] Using segment history for ${segmentId}: ${speedToUse} km/h`);
+    } 
+    // Priority 3: Use Global Traffic Modifier
+    else {
+      speedToUse = speedToUse * trafficModifier;
+      if (window.SMART_TRANSIT_DEBUG) console.debug(`[ETA] Using global modifier: ${speedToUse} km/h`);
+    }
+
+    return computeETAinMinutes(distMeters, speedToUse);
+  }
+
   // Expose for testing
   window.computeWeightedETA = computeWeightedETA;
+  window.computeSmartETA = computeSmartETA;
 
   function findBestBusForStop(stop){
     if(!stop) return null;
@@ -1378,7 +2338,13 @@
       const d = map.distance([entry.pos.lat, entry.pos.lon], [stop.latitude, stop.longitude]);
       const age = now - (entry.lastUpdate || now);
       const stale = age > THRESHOLDS.STALE_MS;
-      const eta = computeWeightedETA(d, entry.computedSpeed || null, stale);
+      
+      // Build segment ID for smart ETA
+      const segmentId = entry.lastStopId && stop.stop_id 
+        ? `${entry.lastStopId}->${stop.stop_id}` 
+        : null;
+      
+      const eta = computeSmartETA(d, segmentId, entry.computedSpeed || null, stale);
       if(!best || eta < best.eta) best = { busId, eta };
     });
     return best;
@@ -1772,12 +2738,24 @@
       map.removeLayer(state.theme === "night" ? dayTiles : nightTiles);
       (state.theme === "night" ? nightTiles : dayTiles).addTo(map);
       target.textContent = state.theme === "day" ? "🌙 Night" : "☀️ Day";
+      if (state.heatmapEnabled) renderTrafficHeatmap();
     }
     else if (action === 'toggle-focus') {
       state.focusMode = !state.focusMode;
       target.textContent = state.focusMode ? "🎯 ON" : "🎯 Focus";
       target.style.background = state.focusMode ? "#2ecc71" : "var(--accent-color)";
       syncFleet();
+    }
+    else if (action === 'logout') {
+      if (confirm('Are you sure you want to logout?')) {
+        localStorage.removeItem('transit_session');
+        location.reload();
+      }
+    }
+    else if (action === 'toggle-heatmap') {
+      state.heatmapEnabled = !state.heatmapEnabled;
+      updateHeatmapToggleUI();
+      renderTrafficHeatmap();
     }
     else if (action === 'add-bus') {
       // Spawn a simulated bus that follows road geometry between consecutive route stops using OSRM.
@@ -1868,6 +2846,99 @@
           // Clean up when loop ends
           state.simulations.delete(busId);
         })(id, assignedRoute);
+      }
+    }
+    else if (action === 'spawn-route-bus') {
+      const routeSelection = document.getElementById('admin-route-select').value;
+      const id = `SIM-${100 + state.simulations.size}`;
+      const routeNames = Object.keys(BUS_ROUTES);
+      
+      // Determine if random or specific
+      const assignedRoute = routeSelection === 'RANDOM' 
+        ? routeNames[Math.floor(Math.random() * routeNames.length)] 
+        : routeSelection;
+        
+      const routeStops = BUS_ROUTES[assignedRoute] || [];
+      let currentStopIndex = routeStops.length > 0 ? Math.floor(Math.random() * routeStops.length) : 0;
+
+      if (routeStops.length === 0) {
+        alert('No route stops available for simulated bus.');
+      } else {
+        state.simulations.add(id);
+        UI.toast(`🚌 Spawning ${id} on ${assignedRoute}`, 'success');
+
+        (async function simulateAlongRoute(busId, routeName) {
+          const stepMs = 1200;
+          const MAX_RETRIES = 2;
+          let retries = 0;
+          
+          while (state.simulations.has(busId)) {
+            try {
+              const fromStopId = routeStops[currentStopIndex % routeStops.length];
+              const toStopId = routeStops[(currentStopIndex + 1) % routeStops.length];
+              const fromStop = STOP_DATA.find(s => s.stop_id === fromStopId);
+              const toStop = STOP_DATA.find(s => s.stop_id === toStopId);
+
+              if (!fromStop || !toStop) {
+                currentStopIndex = (currentStopIndex + 1) % Math.max(1, routeStops.length);
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+              }
+
+              const cacheKey = `${fromStopId}->${toStopId}`;
+              let coords = routeCache.get(cacheKey);
+              if (!coords) {
+                const url = `https://router.project-osrm.org/route/v1/driving/${fromStop.longitude},${fromStop.latitude};${toStop.longitude},${toStop.latitude}?overview=full&geometries=geojson`;
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error('OSRM request failed');
+                const json = await resp.json();
+                coords = (json.routes && json.routes[0] && json.routes[0].geometry && json.routes[0].geometry.coordinates) || [];
+                if (coords && coords.length) routeCache.set(cacheKey, coords);
+              }
+
+              if (!coords || !coords.length) {
+                const payload = { bus_id: busId, latitude: toStop.latitude, longitude: toStop.longitude, passenger_count: Math.floor(Math.random() * BUS_CAPACITY), route_name: routeName, current_stop_id: toStopId };
+                fetch(`${API_BASE}/api/bus/update`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)}).catch(()=>{});
+                retries = 0;
+                currentStopIndex = (currentStopIndex + 1) % Math.max(1, routeStops.length);
+                await new Promise(r => setTimeout(r, 1000));
+                continue;
+              }
+
+              for (let i = 0; i < coords.length; i++) {
+                if (!state.simulations.has(busId)) break; 
+                const [lng, lat] = coords[i];
+                const payload = { bus_id: busId, latitude: lat, longitude: lng, passenger_count: Math.floor(Math.random() * BUS_CAPACITY), route_name: routeName, current_stop_id: toStopId };
+                fetch(`${API_BASE}/api/bus/update`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)}).catch(()=>{});
+                await new Promise(r => setTimeout(r, stepMs));
+              }
+
+              retries = 0;
+              currentStopIndex = (currentStopIndex + 1) % Math.max(1, routeStops.length);
+            } catch (err) {
+              retries++;
+              if (retries >= MAX_RETRIES) {
+                retries = 0;
+                currentStopIndex = (currentStopIndex + 1) % Math.max(1, routeStops.length);
+              } else {
+                await new Promise(r => setTimeout(r, 2000));
+              }
+            }
+          }
+          state.simulations.delete(busId);
+        })(id, assignedRoute);
+      }
+    }
+    else if (action === 'clear-sims') {
+      state.simulations.clear();
+      UI.toast('🧹 Local simulations stopped. Waiting for fleet to clear...', 'info');
+    }
+    else if (action === 'broadcast-alert') {
+      const msg = prompt("Enter an alert message to broadcast to all commuters:");
+      if (msg && msg.trim() !== "") {
+        // In a real app, this would be a POST to the backend via websockets.
+        // For local testing, we simulate the broadcast globally in the UI.
+        UI.toast(`📢 SYSTEM ALERT: ${msg}`, 'error', 10000);
       }
     }
     else if (action === 'reset-system') {
@@ -2105,7 +3176,7 @@
     const stopCard = document.getElementById('stop-summary-card'); if(stopCard) stopCard.style.display = 'none';
     setTimeout(() => successBanner.style.display = "none", 10000);
   }
-  function getOccupancyColor(pax){ return pax < 10 ? "#2ecc71" : pax < 30 ? "#f39c12" : "#e74c3c"; }
+  function getOccupancyColor(pax){ return pax < 15 ? "#06b6d4" : pax < 40 ? "#3b82f6" : "#4c1d95"; }
   function estimateETA(dist){ return `~${Math.max(1, Math.round(dist/1000 * 3))} min`; }
   function getHeading(prev, curr){
     if(!prev) return 0;
@@ -2128,10 +3199,55 @@
     requestAnimationFrame(step);
   }
 
+  /* ================= GEOFENCING & SPATIAL LOGIC ================= */
+  // GPS Boundaries for VIT Main Campus (Approximate rectangle)
+  const CAMPUS_ZONE = [
+    [12.9750, 79.1520], // North-West
+    [12.9750, 79.1650], // North-East
+    [12.9670, 79.1650], // South-East
+    [12.9670, 79.1520]  // South-West
+  ];
+
+  // Ray-Casting Algorithm to determine if a point [lat, lon] is inside a polygon
+  function isPointInPolygon(point, polygon) {
+    let x = point[0], y = point[1];
+    let isInside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      let xi = polygon[i][0], yi = polygon[i][1];
+      let xj = polygon[j][0], yj = polygon[j][1];
+      
+      let intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) isInside = !isInside;
+    }
+    return isInside;
+  }
+
+  // Draw the Geofence on the Leaflet Map
+  const campusFence = L.polygon(CAMPUS_ZONE, {
+    color: '#8b5cf6',      // Purple border
+    fillColor: '#8b5cf6',
+    fillOpacity: 0.1,      // Lightly shaded inside
+    weight: 2,
+    dashArray: '5, 5'      // Dashed line to indicate a digital boundary
+  }).addTo(map);
+  
+  campusFence.bindTooltip("🎓 VIT Campus Zone (Speed Limit: 20km/h)", {sticky: true});
+
   /* ================= MONITOR HUD UPDATES (FEATURE 1) ================= */
   function updateMonitorHUD(){
     const body = document.getElementById('monitor-body');
     if(!body) return;
+
+    const busSelect = document.getElementById('busSelect');
+    const selectedBus = busSelect ? busSelect.value : 'ALL';
+    if(selectedBus === 'ALL'){
+      body.innerHTML = `
+        <div class="placeholder-text">
+          <div style="font-size:20px; margin-bottom:5px;">🚌</div>
+          System Idle. Select a bus to see arrival details.
+        </div>`;
+      return;
+    }
 
     if(!state.monitorEnabled || !state.monitoredBusId){
       body.innerHTML = `
@@ -2201,6 +3317,21 @@
   function updateStopSummaryCard(){
     const card = document.getElementById('stop-summary-card');
     if(!card) return;
+
+    const busSelect = document.getElementById('busSelect');
+    const selectedBus = busSelect ? busSelect.value : 'ALL';
+    if(selectedBus === 'ALL'){
+      card.style.display = 'block';
+      const stopNameEl = document.getElementById('stop-name');
+      const stopBestBusEl = document.getElementById('stop-best-bus');
+      const stopBestEtaEl = document.getElementById('stop-best-eta');
+      const stopConfidenceEl = document.getElementById('stop-confidence');
+      if(stopNameEl) stopNameEl.innerHTML = '<div class="placeholder-text">Ready to Monitor. Select a bus to see arrival details.</div>';
+      if(stopBestBusEl) stopBestBusEl.textContent = '--';
+      if(stopBestEtaEl) stopBestEtaEl.textContent = '--';
+      if(stopConfidenceEl) stopConfidenceEl.textContent = '--';
+      return;
+    }
     
     // Get card body container
     const stopNameEl = document.getElementById('stop-name');
@@ -2263,7 +3394,7 @@
       body.innerHTML = `
         <div class="placeholder-text">
           <div style="font-size:20px; margin-bottom:5px;">🧭</div>
-          Enter a destination in the Route Planner to see the fastest bus options.
+          Navigation Idle. Enter a destination to compare the best available buses.
         </div>`;
       return; 
     }
@@ -2290,7 +3421,13 @@
       // Compute travel time from bus to destination using actual computed speed or fallback
       const d2 = map.distance([entry.pos.lat, entry.pos.lon], [state.destination.lat, state.destination.lng || state.destination.lon]);
       const stale = age > THRESHOLDS.STALE_MS;
-      const travelMin = computeWeightedETA(d2, entry.computedSpeed, stale);
+      
+      // Build segment ID for smart routing
+      const segmentId = entry.lastStopId && entry.lastStopId !== "UNKNOWN" 
+        ? `${entry.lastStopId}->DEST` 
+        : null;
+      
+      const travelMin = computeSmartETA(d2, segmentId, entry.computedSpeed, stale);
 
       const total = waitMin + travelMin;
       candidates.push({ busId, waitMin, travelMin, total, age });
@@ -2426,6 +3563,7 @@
         UI.toast('✅ System Connected', 'success');
       }
       processFleet(data);
+      updateAnalyticsDashboard(data);
     }catch(err){
       ErrorHandler.handleError(err, 'Fleet sync failed');
       document.getElementById('latencyMsg').textContent = '-- ms';
@@ -2491,13 +3629,24 @@
       let eta = "", heading = 0, speedHTML = `<div class="speed-text speed-stale">Speed: --</div>`;
       let computedSpeed = null;
 
-      if(state.userMarker) eta = estimateETA(map.distance(state.userMarker.getLatLng(), [bus.latitude, bus.longitude]));
+      // Build segment ID for intelligent ETA (format: previousStop->currentStop)
+      let segmentId = null;
+      let e = state.buses.get(bus.bus_id);
+      if(e && e.lastStopId && bus.current_stop_id && e.lastStopId !== bus.current_stop_id) {
+        segmentId = `${e.lastStopId}->${bus.current_stop_id}`;
+      }
+
+      if(state.userMarker) {
+        const distToUser = map.distance(state.userMarker.getLatLng(), [bus.latitude, bus.longitude]);
+        // Use smart ETA with segment awareness
+        const etaMin = computeSmartETA(distToUser, segmentId, bus.current_speed, stale);
+        eta = `~${etaMin} min`;
+      }
       if(state.watchedBuses.has(bus.bus_id) && state.userMarker && map.distance(state.userMarker.getLatLng(), [bus.latitude, bus.longitude]) < 1000){
         if(Notification.permission === "granted"){ new Notification(`Bus ${bus.bus_id} is arriving`); notifySound.play(); }
         state.watchedBuses.delete(bus.bus_id);
       }
 
-      let e = state.buses.get(bus.bus_id);
       if(e) heading = getHeading(e.pos, {lat: bus.latitude, lon: bus.longitude}) === -1 ? e.heading : getHeading(e.pos, {lat: bus.latitude, lon: bus.longitude});
       if(e && !stale) {
         const distM = map.distance(e.pos, {lat: bus.latitude, lon: bus.longitude});
@@ -2539,10 +3688,17 @@
           </div>`;
       }
 
+      // Check if bus is inside the Geofenced Campus Zone
+      const inCampus = isPointInPolygon([bus.latitude, bus.longitude], CAMPUS_ZONE);
+      const zoneBadge = inCampus 
+        ? `<div style="background:rgba(139, 92, 246, 0.15); color:#7c3aed; font-size:10px; font-weight:bold; padding:3px 8px; border-radius:4px; display:inline-block; margin-bottom:6px; border:1px solid rgba(139,92,246,0.3);">🎓 Campus Zone</div>` 
+        : ``;
+
       const popupHTML = `
         <div class="bus-popup">
           <b>${bus.bus_id}</b>
           ${DelayReporting.isDelayed(bus.bus_id) ? '<div style="color:#f59e0b;font-weight:700;font-size:11px;margin-bottom:4px">⏱️ DELAYED</div>' : ''}
+          <br>${zoneBadge}
           <div class="progress-bg"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
           <div>${bus.passenger_count} Pax (${pct}%)</div>
           ${speedHTML}
@@ -2559,37 +3715,71 @@
           </div>
         </div>`;
 
-      if(e){
-      if(!map.hasLayer(e.marker)) e.marker.addTo(map);
-      animateMarker(e.marker, e.pos, {lat: bus.latitude, lon: bus.longitude}, ANIMATION_MS);
-        // Highlight recommended bus visually
+      // Check if we already have a valid marker and position for this bus
+      const isExisting = e && e.pos && e.marker;
+
+      // Logic Split: Update vs. Create
+      if (isExisting) {
+        // === UPDATE EXISTING BUS ===
+        if(!map.hasLayer(e.marker)) e.marker.addTo(map);
+        
+        // Safe to animate because e.pos is known
+        animateMarker(e.marker, e.pos, {lat: bus.latitude, lon: bus.longitude}, ANIMATION_MS);
+        
+        // Update Icon & Popup - Highlight recommended bus visually
         const isRecommended = (bus.bus_id === state.recommendedBusId);
         const filters = [];
         if(isRecommended) filters.push('drop-shadow(0 0 8px rgba(255,206,0,0.9))');
         if(stale) filters.push('grayscale(1) contrast(0.95)');
         const filter = filters.length ? filters.join(' ') : 'none';
         const finalOpacity = isRecommended ? 1 : opacity;
-        e.marker.setIcon(createBusIcon(heading, color, finalOpacity, filter, eta, confUI.dot));
         
+        e.marker.setIcon(createBusIcon(heading, color, finalOpacity, filter, eta, confUI.dot));
         if(!e.marker.isPopupOpen()) e.marker.setPopupContent(popupHTML);
-        e.pos = {lat: bus.latitude, lon: bus.longitude}; e.heading = heading; e.lastUpdate = now;
-        // Stop alert check
+
+        // Update state
+        e.pos = {lat: bus.latitude, lon: bus.longitude}; 
+        e.heading = heading; 
+        e.lastUpdate = now;
+        
+        // Track last stop ID for segment detection
+        if(bus.current_stop_id && bus.current_stop_id !== e.lastStopId) {
+          e.lastStopId = bus.current_stop_id;
+        }
+
+        // Alerts
         if(state.monitorEnabled && state.monitoredBusId === bus.bus_id && state.selectedStop){
           const distToStop = map.distance([bus.latitude, bus.longitude], [state.selectedStop.latitude, state.selectedStop.longitude]);
           checkStopAlerts(bus, distToStop, computedSpeed, age);
         }
         if(state.guardianMode) map.panTo([bus.latitude, bus.longitude], {animate: true});
+
       } else {
+        // === CREATE NEW BUS ===
+        // Remove 'ghost' placeholder if it exists without a marker
+        if (e && !e.marker) state.buses.delete(bus.bus_id);
+
         const isRecommended = (bus.bus_id === state.recommendedBusId);
         const filters = [];
         if(isRecommended) filters.push('drop-shadow(0 0 8px rgba(255,206,0,0.9))');
         if(stale) filters.push('grayscale(1) contrast(0.95)');
         const filter = filters.length ? filters.join(' ') : 'none';
         const finalOpacity = isRecommended ? 1 : opacity;
+
         const m = L.marker([bus.latitude, bus.longitude], { icon: createBusIcon(0, color, finalOpacity, filter, eta, confUI.dot) }).addTo(map);
         m.bindPopup(popupHTML);
-        state.buses.set(bus.bus_id, { marker: m, pos: {lat: bus.latitude, lon: bus.longitude}, heading: 0, lastUpdate: now });
-        // Stop alert check for newly added marker
+        
+        // Initialize state
+        state.buses.set(bus.bus_id, { 
+          marker: m, 
+          pos: {lat: bus.latitude, lon: bus.longitude}, 
+          heading: 0, 
+          lastUpdate: now,
+          computedSpeed: null,
+          lastStopId: bus.current_stop_id || null 
+        });
+
+        // Initial alert check
         if(state.monitorEnabled && state.monitoredBusId === bus.bus_id && state.selectedStop){
           const distToStop = map.distance([bus.latitude, bus.longitude], [state.selectedStop.latitude, state.selectedStop.longitude]);
           checkStopAlerts(bus, distToStop, computedSpeed, age);
@@ -2655,6 +3845,15 @@
   // MAIN BOOT & EVENT LOOP
   // ==========================================
 
+  // Load traffic profile once on boot and refresh periodically
+  syncTrafficProfile();
+  setInterval(syncTrafficProfile, 300000); // every 5 minutes
+
+  // Load heatmap once on boot and refresh periodically
+  updateHeatmapToggleUI();
+  renderTrafficHeatmap();
+  setInterval(renderTrafficHeatmap, 300000);
+
   // Main fleet sync and journey completion polling
   setInterval(() => { syncFleet(); checkJourneyCompletion(); }, THRESHOLDS.POLL_MS);
 
@@ -2684,12 +3883,314 @@
     }
   }, 300000); // Every 5 minutes
 
+  /* ================= HERO SEARCH AUTOCOMPLETE ================= */
+  (function(){
+    const heroFrom = document.getElementById('heroRouteFrom');
+    const heroTo = document.getElementById('heroRouteTo');
+    const heroSug = document.getElementById('heroSuggestions');
+    const mainFrom = document.getElementById('routeFrom');
+    const mainTo = document.getElementById('routeTo');
+
+    if(!heroFrom || !heroTo || !heroSug) return;
+
+    let fromTimer, toTimer;
+
+    // Fetch coordinates from Nominatim API
+    async function fetchHeroNominatim(q){
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`);
+        return await res.json();
+      } catch(e) {
+        return [];
+      }
+    }
+
+    // Render the dropdown
+    function showHeroSuggestions(items, inputEl) {
+      heroSug.innerHTML = '';
+      if(!items.length) { heroSug.style.display = 'none'; return; }
+
+      items.forEach(it => {
+        const div = document.createElement('div');
+        div.className = 'suggestion-item';
+        div.textContent = it.display_name;
+
+        div.addEventListener('click', () => {
+          // 1. Set text in the hero input
+          inputEl.value = it.display_name;
+
+          // 2. Sync text to the internal control panel inputs
+          if(inputEl === heroFrom && mainFrom) mainFrom.value = it.display_name;
+          if(inputEl === heroTo && mainTo) mainTo.value = it.display_name;
+
+          // 3. Sync coordinates directly to Leaflet Routing Machine
+          try {
+            const latlng = L.latLng(parseFloat(it.lat), parseFloat(it.lon));
+            const wps = routing.getWaypoints();
+            if(inputEl === heroFrom) routing.spliceWaypoints(0, 1, latlng);
+            else routing.spliceWaypoints(Math.max(0, wps.length - 1), 1, latlng);
+          } catch(e) { console.warn('Hero sync to map failed', e); }
+
+          heroSug.style.display = 'none';
+        });
+        heroSug.appendChild(div);
+      });
+
+      // Position the dropdown directly under the active input
+      const rect = inputEl.getBoundingClientRect();
+      heroSug.style.position = 'fixed';
+      heroSug.style.left = rect.left + 'px';
+      heroSug.style.top = rect.bottom + 'px';
+      heroSug.style.width = rect.width + 'px';
+      heroSug.style.display = 'block';
+    }
+
+    // Listeners for typing
+    heroFrom.addEventListener('input', (e) => {
+      clearTimeout(fromTimer);
+      const q = e.target.value.trim();
+      if(!q) { heroSug.style.display = 'none'; return; }
+      fromTimer = setTimeout(async () => { showHeroSuggestions(await fetchHeroNominatim(q), heroFrom); }, 300);
+    });
+
+    heroTo.addEventListener('input', (e) => {
+      clearTimeout(toTimer);
+      const q = e.target.value.trim();
+      if(!q) { heroSug.style.display = 'none'; return; }
+      toTimer = setTimeout(async () => { showHeroSuggestions(await fetchHeroNominatim(q), heroTo); }, 300);
+    });
+
+    // Hide suggestions when clicking elsewhere
+    document.addEventListener('click', (e) => {
+      if(!heroFrom.contains(e.target) && !heroTo.contains(e.target) && !heroSug.contains(e.target)) {
+        heroSug.style.display = 'none';
+      }
+    });
+  })();
+
+  /* Handle the "Find Buses" button click */
+  window.handleHeroSearch = () => {
+    const fromVal = document.getElementById('heroRouteFrom').value;
+    const toVal = document.getElementById('heroRouteTo').value;
+
+    if(!fromVal || !toVal) {
+      UI.toast('Please select both From and To locations.', 'error');
+      return;
+    }
+
+    // Ensure the internal tabs are set up to show the planner
+    if (typeof switchTab === 'function') switchTab('planner');
+
+    const routingWrapper = document.getElementById("routing-wrapper");
+    if(routingWrapper) routingWrapper.classList.add("open");
+
+    // Prompt the login form
+    window.showLoginForm('user');
+  };
+
+  /* ================= FOOTER INTERACTIVITY ================= */
+  window.handleFooterAction = (action) => {
+    UI.toast('Please log in to access this feature.', 'info');
+    const portal = document.getElementById('login-portal');
+    if (portal) portal.scrollTo({top: 0, behavior: 'smooth'});
+    setTimeout(() => {
+      window.showLoginForm('user');
+    }, 400);
+  };
+
+  window.showAboutModal = (type) => {
+    const modal = document.getElementById('about-modal');
+    const title = document.getElementById('about-title');
+    const content = document.getElementById('about-content');
+
+    if (type === 'docs') {
+      title.textContent = 'Project Documentation';
+      content.innerHTML = `
+        <b>VIT Smart Transit - Golden Master v30</b><br><br>
+        This platform was developed as a comprehensive Object-Oriented Programming (OOP) project. <br><br>
+        It features a modular architecture handling real-time GPS telemetry, OSRM road geometry integration, and predictive ETA algorithms adjusted for simulated traffic patterns.<br><br>
+        <i>Lead Developer: Khaleelur Rahman M.</i>
+      `;
+    } else if (type === 'report') {
+      title.textContent = 'Report an Issue';
+      content.innerHTML = `
+        Found a bug or an incorrect bus route prediction?<br><br>
+        Please contact the system administrator with the Bus ID and expected route to help us refine the traffic models.<br><br>
+        <a href="mailto:admin@smarttransit.local" style="color:#2563eb; text-decoration:none; font-weight:bold;">✉️ Contact Support</a>
+      `;
+    }
+
+    modal.style.display = 'block';
+    setTimeout(() => modal.classList.add('active'), 10);
+  };
+
+  /* ================= LIVE ANALYTICS ENGINE ================= */
+  let speedChart = null;
+  let chartTimeLabels = [];
+  let chartSpeedData = [];
+
+  function initChart() {
+    const ctx = document.getElementById('fleetSpeedChart');
+    if (!ctx) return;
+    
+    speedChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: chartTimeLabels,
+        datasets: [{
+          label: 'Avg Speed',
+          data: chartSpeedData,
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4, // Smooth curves
+          pointRadius: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 }, // Snappy animations
+        scales: {
+          y: { beginAtZero: true, max: 60, ticks: { font: { size: 10 } } },
+          x: { ticks: { font: { size: 9 }, maxTicksLimit: 6 } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  // Calculate stats and push them to the chart
+  function updateAnalyticsDashboard(data) {
+    if (!speedChart) initChart();
+    if (!Array.isArray(data)) return;
+
+    let totalSpeed = 0;
+    let countSpeed = 0;
+    let totalPax = 0;
+    let activeCount = 0;
+
+    data.forEach(bus => {
+      // Only count buses that are actively moving/reporting  
+      const age = Date.now() - new Date(bus.last_updated).getTime();
+      if (age < THRESHOLDS.OFFLINE_MS) {
+        activeCount++;
+        totalPax += (bus.passenger_count || 0);
+        
+        // Grab computed speed from our state map if available
+        const stateEntry = state.buses.get(bus.bus_id);
+        if (stateEntry && stateEntry.computedSpeed !== null) {
+          totalSpeed += stateEntry.computedSpeed;
+          countSpeed++;
+        }
+      }
+    });
+
+    const avgSpeed = countSpeed > 0 ? (totalSpeed / countSpeed) : 0;
+    const avgPax = activeCount > 0 ? Math.round(totalPax / activeCount) : 0;
+
+    // Update the KPI numbers in the HTML
+    const elBuses = document.getElementById('stat-active-buses');
+    const elPax = document.getElementById('stat-avg-pax');
+    if (elBuses) elBuses.textContent = activeCount;
+    if (elPax) elPax.textContent = avgPax;
+
+    // Update the Chart
+    if (speedChart) {
+      const now = new Date();
+      const timeStr = now.getHours() + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
+      
+      chartTimeLabels.push(timeStr);
+      chartSpeedData.push(avgSpeed);
+
+      // Keep only the last 15 data points so the chart scrolls left
+      if (chartTimeLabels.length > 15) {
+        chartTimeLabels.shift();
+        chartSpeedData.shift();
+      }
+      speedChart.update();
+    }
+  }
+
   })();
   </script>
 
   <!-- ==================== UI INTERACTION HANDLERS ==================== -->
   <!-- Panel toggle (click to open/close) -->
   <script>
+  window.safeShowLoginForm = (role) => {
+    console.log('🔴 safeShowLoginForm called with role:', role, 'timestamp:', new Date().toISOString());
+    try {
+      if (typeof window.showLoginForm === 'function') {
+        console.log('✅ showLoginForm exists, calling now...');
+        window.showLoginForm(role);
+      }
+    } catch (e) {
+      console.warn('showLoginForm failed, using fallback.', e);
+    }
+
+    const savedBanner = document.getElementById('saved-session');
+    if (savedBanner) savedBanner.style.display = 'none';
+
+    const userInput = document.getElementById('login-user');
+    if (userInput) {
+      userInput.value = role === 'admin' ? 'admin' : 'user';
+    }
+
+    const roleSelection = document.getElementById('role-selection');
+    if (roleSelection) {
+      roleSelection.style.display = 'none';
+    }
+
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+      loginForm.classList.add('active');
+    }
+
+    const loginTitle = document.getElementById('login-title');
+    if (loginTitle) {
+      loginTitle.textContent = role === 'admin' ? 'Admin Login' : 'Commuter Login';
+    }
+  };
+
+  function switchTab(tabName) {
+    // Array of all possible tabs
+    const tabs = ['fleet', 'planner', 'tickets', 'analytics'];
+    
+    // Deactivate all
+    tabs.forEach(t => {
+      const btn = document.getElementById('tab-' + t);
+      const content = document.getElementById('content-' + t);
+      if (btn) btn.classList.remove('active');
+      if (content) content.classList.remove('active');
+    });
+
+    // Activate the clicked one
+    const activeBtn = document.getElementById('tab-' + tabName);
+    const activeContent = document.getElementById('content-' + tabName);
+    if (activeBtn) activeBtn.classList.add('active');
+    if (activeContent) activeContent.classList.add('active');
+
+    // Force Chart.js to recalculate its container size when the analytics tab becomes visible
+    if (tabName === 'analytics' && speedChart) {
+      speedChart.resize();
+    }
+
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+  }
+
+  // Function to show the QR Modal
+  window.showQRModal = (passName) => {
+    const modal = document.getElementById('qr-modal');
+    const nameEl = document.getElementById('qr-pass-name');
+    if (nameEl) nameEl.textContent = passName;
+    
+    modal.style.display = 'block';
+    // Small delay to allow CSS transition to trigger
+    setTimeout(() => modal.classList.add('active'), 10); 
+  };
+
   (function(){
     const panel = document.getElementById('side-panel');
     const btn = document.getElementById('panelToggleBtn');
@@ -2729,6 +4230,62 @@
       }
     });
   })();
+
+  /* Traffic Heatmap Legend Toggle */
+  (function(){
+    const toggle = document.getElementById('heatmap-toggle');
+    const body = document.getElementById('heatmap-body');
+    const chevron = document.querySelector('.heatmap-chevron');
+
+    if(!toggle || !body || !chevron) return;
+
+    // Start expanded by default
+    body.style.display = 'block';
+    chevron.textContent = '▼';
+
+    toggle.addEventListener('click', (e) => {
+      if (e.target && e.target.closest && e.target.closest('[data-action="toggle-heatmap"]')) return;
+      e.stopPropagation();
+      const isOpen = body.style.display !== 'none';
+      if(isOpen){
+        body.style.display = 'none';
+        chevron.textContent = '▶';
+      } else {
+        body.style.display = 'block';
+        chevron.textContent = '▼';
+      }
+    });
+  })();
   </script>
+
+  <div id="qr-modal" class="portal-login" style="display:none; position: fixed; z-index: 50005;">
+    <h3 style="margin-top:0; color:#111; text-align: center; margin-bottom: 5px;">Scan to Board</h3>
+    <div style="font-size:12px; color:#666; text-align: center; margin-bottom:16px;">Hold your phone near the bus validator</div>
+    
+    <div style="background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; position: relative; overflow: hidden; border: 1px solid #e2e8f0;">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=VIT-SMART-TRANSIT-AUTH-TOKEN-992" 
+           alt="Transit boarding pass QR code for VIT Smart Transit" 
+           loading="lazy"
+           width="160" height="160"
+           style="width: 160px; height: 160px; mix-blend-mode: multiply;">
+      <div class="scanner-laser" role="presentation" aria-hidden="true"></div>
+    </div>
+    
+    <div id="qr-pass-name" style="text-align: center; font-weight: bold; margin-top: 16px; font-size: 15px; color: var(--accent-color);">Student Monthly Pass</div>
+    <div style="text-align: center; font-size: 11px; color: #10b981; margin-top: 4px; font-weight: bold;">● Active & Valid</div>
+    
+    <button class="ui-btn btn-gray" style="width:100%; padding: 12px; margin-top: 20px;" onclick="document.getElementById('qr-modal').classList.remove('active'); setTimeout(() => document.getElementById('qr-modal').style.display='none', 300)">Done</button>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('✅ PWA Service Worker Registered', reg.scope))
+          .catch((err) => console.warn('PWA Registration failed:', err));
+      });
+    }
+  </script>
+
   </body>
   </html>

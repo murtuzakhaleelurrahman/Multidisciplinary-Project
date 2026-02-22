@@ -2,12 +2,29 @@
 
 ## 🚀 Getting Started (2 minutes)
 
+### 0. MongoDB Setup (First Time Only)
+```bash
+cd backend
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env and set your MONGODB_URI
+# For quick start, use MongoDB Atlas free tier:
+# https://www.mongodb.com/cloud/atlas
+
+# Seed demo data (30 days of traffic + demo users)
+node seed_traffic.js
+node seed_users.js
+```
+
 ### 1. Start Backend
 ```bash
 cd backend
 npm install
 node index.js
 # Server running on http://localhost:3000
+# Should show: ✅ MongoDB connected
 ```
 
 ### 2. Open Frontend
@@ -242,6 +259,6 @@ d:\Multidisciplinary Project\
 
 ---
 
-**Last Updated**: January 2026  
+**Last Updated**: February 2026  
 **Version**: 1.0 Production-Ready  
 **Status**: ✅ Ready for Evaluation

@@ -18,9 +18,21 @@ A **real-time bus tracking system** that demonstrates:
 ```bash
 cd backend
 npm install
+
+# Setup MongoDB (required)
+cp .env.example .env
+# Edit .env and set MONGODB_URI
+
+# Seed demo data (recommended)
+node seed_traffic.js
+node seed_users.js
+
+# Start server
 node index.js
 ```
 Server runs at `http://localhost:3000`
+
+> **Quick option**: Use MongoDB Atlas free tier (see [SETUP_GUIDE.md](backend/SETUP_GUIDE.md))
 
 ### 2. Open Frontend
 ```bash
@@ -98,7 +110,10 @@ catch(e) {
 ### Backend
 ```bash
 curl http://localhost:3000/api/bus_locations
-# Returns ~100 bus objects with lat/lon/speed/passenger_count
+# Returns active buses from MongoDB with lat/lon/speed/health status
+
+curl http://localhost:3000/api/traffic/heatmap
+# Returns traffic speed data aggregated from TripHistory collection
 ```
 
 ### Tests
@@ -139,9 +154,9 @@ curl http://localhost:3000/api/bus_locations
 This is deliberately **NOT**:
 - ❌ WebSocket-based (polling is fine for the scope)
 - ❌ ML ETA calculation (weighted ETA is better engineering)
-- ❌ Full database (in-memory demo is appropriate)
 - ❌ Mobile app (browser-responsive is sufficient)
 - ❌ Extensive UI redesign (simple is better)
+- ❌ Production auth (demo users with plain-text passwords for evaluation only)
 
 The score comes from **how you think**, not from feature count.
 
@@ -163,19 +178,25 @@ The score comes from **how you think**, not from feature count.
 
 ```
 frontend/
-  └── index.html              (2400+ lines, all-in-one)
+  └── index.html              (2400+ lines, all-in-one SPA)
       ├── CSS (flexbox, animations, dark mode)
       ├── CONFIG object (12 parameters)
       ├── 5 modules (Security, ErrorHandler, UI, DelayReporting)
       └── Fleet sync loop (2s polling)
 
 backend/
-  └── index.js                (Express server, /api routes)
+  ├── index.js                (Express server, 450+ lines)
+  ├── models/
+  │   ├── ActiveFleet.js      (Current bus state)
+  │   ├── TripHistory.js      (Historical traffic)
+  │   └── User.js             (Authentication)
+  ├── seed_traffic.js         (30 days of demo data)
+  └── seed_users.js           (Demo users)
 
 tests/
   └── basic-tests.js          (50 lines, 5 assertions)
 
-README.md                      (Concise, route caching highlighted)
+README.md                      (Concise, MongoDB + route caching highlighted)
 ```
 
 ---
@@ -184,13 +205,14 @@ README.md                      (Concise, route caching highlighted)
 
 | Task | Duration |
 |------|----------|
-| Start backend | 1 min |
+| Setup MongoDB (.env) | 2 min |
+| Start backend + seed data | 2 min |
 | Open frontend | 30 sec |
 | Visual demo (features) | 2 min |
 | Run tests | 1 min |
 | Code review (callouts) | 3 min |
 | Read README + architecture | 2 min |
-| **Total** | ~9 min |
+| **Total** | ~12 min |
 
 ---
 
@@ -198,7 +220,8 @@ README.md                      (Concise, route caching highlighted)
 
 - **"Why route caching?"**: Shows systems thinking beyond coursework
 - **"Why those ETA assumptions?"**: Shows product thinking (not just coding)
-- **"Why no database?"**: Shows scope discipline (in-memory appropriate for demo)
+- **"Why MongoDB?"**: Shows data persistence and historical analytics capability
+- **"Why demo auth?"**: Shows scope discipline (bcrypt + JWT is future work)
 - **"Why these test assertions?"**: Shows understanding of what matters (not coverage count)
 - **"Why these modules?"**: Shows refactoring judgment (grouped by domain, not line count)
 
@@ -210,4 +233,4 @@ README.md                      (Concise, route caching highlighted)
 
 ---
 
-*Prepared: January 2026*
+*Prepared: February 2026*

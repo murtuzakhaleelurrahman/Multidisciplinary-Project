@@ -60,6 +60,8 @@ return routeCache.get(cacheKey); // 2nd+ time: instant
 ### Backend
 - **Node.js** – JavaScript runtime environment
 - **Express.js** – HTTP server & REST API routing
+- **MongoDB** – NoSQL database for fleet data, trip history & users
+- **Mongoose** – MongoDB ODM for data modeling
 - **CORS** – Cross-origin request handling
 
 ### External APIs
@@ -81,14 +83,28 @@ return routeCache.get(cacheKey); // 2nd+ time: instant
 ```bash
 cd backend
 npm install
+
+# Configure MongoDB connection
+cp .env.example .env
+# Edit .env and set your MONGODB_URI
+
+# Seed historical traffic data (optional but recommended)
+node seed_traffic.js
+
+# Seed demo users (optional)
+node seed_users.js
+
+# Start the server
 npm start
 # Server runs at http://localhost:3000 (dev) or Render (production)
 ```
 
 Backend provides:
-- `GET /api/bus_locations` – Returns all bus positions & metadata
-- `POST /api/bus/update` – Accepts simulated bus updates
-- `POST /api/system/reset` – Resets all data
+- `POST /api/auth/login` – User authentication (demo-only, no bcrypt)
+- `GET /api/bus_locations` – Returns all active buses with health status
+- `POST /api/bus/update` – Updates bus telemetry with sanity checks
+- `POST /api/system/reset` – Resets all fleet data
+- `GET /api/traffic/heatmap` – Returns traffic speed data per segment
 
 ### Frontend
 ```bash
@@ -118,15 +134,17 @@ npx http-server frontend/
 │   Frontend (Vanilla JS)   │      │  Backend (Node.js)    │
 │                           │      │                       │
 │  Map Engine               │      │  API Layer            │
-│  (Leaflet, markers,       │      │  • GET /api/bus_...   │
-│   icons, animations)      │      │  • POST /api/bus/...  │
-│                           │      │  • POST /api/system..│
-│  ├─ Fleet Sync (2s poll)  │◄────►│                       │
-│  │                        │      │  Database             │
-│  ├─ ETA Calculator        │      │  (simulated in-mem)   │
-│  ├─ Stop Monitoring       │      │                       │
-│  ├─ Route Planner         │      └───────────────────────┘
-│  └─ UI/HUD                │
+│  (Leaflet, markers,       │      │  • POST /api/auth/... │
+│   icons, animations)      │      │  • GET /api/bus_...   │
+│                           │      │  • POST /api/bus/...  │
+│  ├─ Fleet Sync (2s poll)  │◄────►│  • GET /api/traffic...│
+│  │                        │      │                       │
+│  ├─ ETA Calculator        │      │  Database             │
+│  ├─ Stop Monitoring       │      │  (MongoDB)            │
+│  ├─ Route Planner         │      │  • ActiveFleet        │
+│  └─ UI/HUD                │      │  • TripHistory        │
+│                           │      │  • User               │
+│                           │      └───────────────────────┘
 │                           │      ┌───────────────────────┐
 │  Modules:                 │      │  External APIs        │
 │  • Security (XSS)         │      │  • Nominatim (search) │
@@ -252,8 +270,9 @@ Security.escapeHTML("<script>alert('xss')</script>");  // Should escape
 ### Scalability
 - **Polling model** – 2-second refresh causes latency (Phase 2: WebSocket)
 - **Single-threaded** – 1000+ buses may freeze UI thread
-- **Memory leaks** – Old markers not fully garbage-collected on cleanup
+- **Memory management** – Cleanup timers remove offline buses and old markers
 - **Network bandwidth** – Full fleet data every 2 seconds (~10KB/cycle)
+- **Database** – MongoDB handles persistence and historical traffic data
 
 ---
 
@@ -261,13 +280,13 @@ Security.escapeHTML("<script>alert('xss')</script>");  // Should escape
 
 ### High Priority
 - **WebSocket sync** – Replace HTTP polling with Socket.io real-time push
-- **Database** – Persist bus routes, stops, historical data (PostgreSQL)
 - **ML-based ETA** – Learn from historical patterns, adapt speed estimates
+- **Advanced analytics** – Real-time traffic prediction using TripHistory data
 
 ### Medium Priority
-- **Delay analytics** – Heatmaps of peak delay times, predictive alerts
+- **Delay analytics** – Enhanced heatmaps of peak delay times, predictive alerts
 - **Mobile app** – React Native cross-platform (iOS + Android)
-- **User accounts** – Save favorites, preferences, notification history
+- **User accounts** – Enhanced authentication with JWT and bcrypt (currently demo-only)
 
 ### Low Priority
 - **Accessibility** – WCAG 2.1 compliance, screen reader support
@@ -282,16 +301,30 @@ Security.escapeHTML("<script>alert('xss')</script>");  // Should escape
 ```
 Multidisciplinary Project/
 ├── README.md                      (this file)
+├── EVALUATOR_GUIDE.md             (Quick start for evaluators)
+├── QUICK_START_EVALUATION.md      (Testing & evaluation guide)
+├── SETUP_GUIDE.md                 (Backend setup instructions)
+├── SEEDER_GUIDE.md                (Traffic data seeding guide)
 ├── frontend/
-│   └── index.html                 (2300+ lines, all-in-one)
-│       ├── <style> CSS embedded
-│       └── <script> JavaScript embedded
+│   ├── index.html                 (2300+ lines, all-in-one SPA)
+│   │   ├── <style> CSS embedded
+│   │   └── <script> JavaScript embedded
+│   └── tests.js                   (Unit tests, auto-loaded in debug mode)
 ├── backend/
-│   ├── index.js                   (Express server)
+│   ├── index.js                   (Express server, 450+ lines)
 │   ├── package.json
-│   └── package-lock.json
+│   ├── .env.example               (Environment variables template)
+│   ├── .env                       (Your MongoDB config - git ignored)
+│   ├── seed_traffic.js            (Generates 30 days of traffic data)
+│   ├── seed_users.js              (Creates demo users)
+│   ├── SEEDER_GUIDE.md            (Seeding instructions)
+│   ├── SETUP_GUIDE.md             (Backend setup guide)
+│   └── models/
+│       ├── ActiveFleet.js         (Current bus positions & state)
+│       ├── TripHistory.js         (Historical traffic data)
+│       └── User.js                (User authentication)
 └── tests/
-    └── basic-tests.js             (optional, console assertions)
+    └── basic-tests.js             (Console assertions for core logic)
 ```
 
 ### Code Organization
@@ -489,8 +522,8 @@ console.groupEnd();
 
 ---
 
-**Last Updated**: January 2026  
+**Last Updated**: February 2026  
 **Version**: 1.0 (Golden Master)  
-**Status**: ✅ Production-Ready (Demo Data)  
+**Status**: ✅ Production-Ready with MongoDB Integration  
 **License**: Educational Use Only
 
