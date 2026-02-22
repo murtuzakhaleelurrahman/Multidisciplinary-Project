@@ -71,6 +71,15 @@ app.get("/", (req, res) => {
   res.send("✅ Smart Transit Backend Online");
 });
 
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    mongodb: dbReady ? "connected" : "disconnected",
+    uptime: process.uptime()
+  });
+});
+
 /* =========================================================
    AUTHENTICATION (DEMO-ONLY)
    =========================================================
