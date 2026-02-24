@@ -449,6 +449,85 @@ app.get("/api/traffic/heatmap", async (req, res) => {
 });
 
 /* =========================================================
+   USER TICKETS ENDPOINT (for dashboard)
+   Purpose: Return user's booked tickets with real occupancy data
+   ========================================================= */
+app.get("/api/user/tickets", async (req, res) => {
+  try {
+    // Get all active buses with their current data
+    const buses = await ActiveFleet.find({
+      last_updated: { $gte: new Date(Date.now() - OFFLINE_MS) }
+    }).lean();
+
+    if (!buses || buses.length === 0) {
+      return res.json({ tickets: [] });
+    }
+
+    // Demo data: Generate realistic tickets for the logged-in user
+    // In production, fetch from a "Bookings" or "Tickets" collection
+    const demoTickets = buses.slice(0, 2).map((bus, idx) => {
+      const occupancyPercent = Math.round(
+        ((bus.passenger_count || 0) / 50) * 100
+      );
+      
+      const routeData = [
+        {
+          id: "VLR_001",
+          name: "Vellore Fort",
+          source: "Vellore Fort",
+          destination: "Katpadi Junction",
+          routeCode: "ROUTE 4A",
+          currentStop: "Green Circle"
+        },
+        {
+          id: "VLR_002",
+          name: "CMH Road",
+          source: "VIT Gate",
+          destination: "Melvisharam",
+          routeCode: "ROUTE 3B",
+          currentStop: "CMH Road"
+        }
+      ];
+
+      const route = routeData[idx % routeData.length];
+      
+      // Calculate ETA based on last update
+      const ageSeconds = (Date.now() - new Date(bus.last_updated).getTime()) / 1000;
+      const eta = Math.max(5, Math.round((30 - ageSeconds / 10)));
+
+      return {
+        ticket_id: `TKT-${bus.bus_id}-${Date.now()}`,
+        bus_id: bus.bus_id,
+        route_code: route.routeCode,
+        source: route.source,
+        destination: route.destination,
+        current_stop: route.currentStop,
+        reserved_seats: idx + 1,
+        occupancy_percentage: occupancyPercent,
+        passenger_count: bus.passenger_count || 0,
+        bus_capacity: 50,
+        eta_minutes: eta,
+        status: occupancyPercent > 85 ? "delayed" : "active",
+        latitude: bus.latitude,
+        longitude: bus.longitude,
+        last_updated: bus.last_updated,
+        booking_date: new Date(Date.now() - 86400000) // Yesterday
+      };
+    });
+
+    res.json({ 
+      tickets: demoTickets,
+      count: demoTickets.length,
+      timestamp: new Date().toISOString(),
+      total_active_buses: buses.length
+    });
+  } catch (err) {
+    console.error("User tickets fetch failed:", err.message);
+    res.status(500).json({ error: "Failed to fetch user tickets" });
+  }
+});
+
+/* =========================================================
    START SERVER
    ========================================================= */
 app.listen(PORT, () => {
