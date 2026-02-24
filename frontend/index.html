@@ -1615,7 +1615,7 @@
       <div style="display: flex; border-bottom: 1px solid rgba(0,0,0,0.1); background: var(--panel-bg-solid);">
         <button id="tab-fleet" class="tab-btn active" onclick="switchTab('fleet')">🚌 Fleet</button>
         <button id="tab-planner" class="tab-btn" onclick="switchTab('planner')">🧭 Planner</button>
-        <button id="tab-tickets" class="tab-btn" onclick="switchTab('tickets')">🎟️ Tickets</button>
+        <!-- Tickets tab removed - replaced with Live Fleet Directory -->
         <button id="tab-analytics" class="tab-btn admin-feature" onclick="switchTab('analytics')" style="display:none;">📈 Analytics</button>
       </div>
 
@@ -1763,31 +1763,7 @@
         </section>
       </div>
 
-      <div id="content-tickets" class="tab-content">
-        <section class="panel-section" id="panel-wallet">
-          <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Active Passes</div>
-          
-          <div class="hud-panel" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; border: none; padding: 16px; margin-bottom: 12px; cursor: pointer; position: relative; overflow: hidden; box-shadow: 0 8px 20px rgba(59,130,246,0.3); transition: transform 0.2s;" onclick="window.showQRModal('Student Monthly Pass')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; position: relative; z-index: 2;">
-              <div>
-                <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8;">Verified</div>
-                <div style="font-size: 18px; font-weight: bold; margin-top: 2px;">VIT Student Pass</div>
-              </div>
-              <div style="background: rgba(255,255,255,0.2); backdrop-filter: blur(4px); padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">Zone A</div>
-            </div>
-            <div style="font-size: 12px; opacity: 0.9; position: relative; z-index: 2;">Valid till: Mar 31, 2026</div>
-            <div style="position: absolute; right: -20px; bottom: -20px; opacity: 0.1; font-size: 80px; z-index: 1;">🚌</div>
-          </div>
-
-          <div class="hud-panel" style="border: 2px dashed rgba(0,0,0,0.15); padding: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onclick="window.showQRModal('Single Journey - Katpadi')" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background='transparent'">
-            <div>
-              <div style="font-weight: bold; color: var(--text-color);">Single Journey</div>
-              <div style="font-size: 12px; color: #666; margin-top: 2px;">Vellore ⇄ Katpadi</div>
-            </div>
-            <div style="font-weight: bold; font-size: 18px; color: var(--accent-color);">₹15</div>
-          </div>
-        </section>
-      </div>
+      <!-- Tickets content tab removed - functionality replaced by Live Fleet Directory in side-window -->
 
       <div id="content-analytics" class="tab-content">
         <section class="panel-section" id="panel-charts">
@@ -1839,8 +1815,10 @@
   <!-- Side Dashboard Window -->
   <div id="side-window" class="side-window">
     <div class="side-header">
-      <h3>My Dashboard</h3>
-      <button id="close-side" class="close-btn">&times;</button>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>🚌 Live Fleet Directory</h3>
+        <button id="close-side" class="close-btn">&times;</button>
+      </div>
     </div>
     
     <div class="side-content">
@@ -2516,8 +2494,8 @@
     if (!isAdmin && window.Dashboard) {
       setTimeout(() => {
         window.Dashboard.open();
-        // Load REAL tickets from backend with occupancy data
-        window.loadRealTickets();
+        // Refresh the Live Fleet Directory
+        window.Dashboard.refreshDirectory();
       }, 500);
     }
   }
@@ -4645,230 +4623,115 @@
     },
     
     // Open the dashboard
-    open() {
-      const sideWindow = document.getElementById('side-window');
-      if (sideWindow) {
-        sideWindow.classList.add('active');
-        if (window.SMART_TRANSIT_DEBUG) console.log('📊 Dashboard opened');
-      }
+    open() { 
+      document.getElementById('side-window').classList.add('active');
+      this.refreshDirectory(); // Load the live buses when opened
     },
     
     // Close the dashboard
-    close() {
-      const sideWindow = document.getElementById('side-window');
-      if (sideWindow) {
-        sideWindow.classList.remove('active');
-        if (window.SMART_TRANSIT_DEBUG) console.log('📊 Dashboard closed');
-      }
+    close() { 
+      document.getElementById('side-window').classList.remove('active');
     },
     
     // Toggle the dashboard
-    toggle() {
-      const sideWindow = document.getElementById('side-window');
-      if (sideWindow) {
-        sideWindow.classList.toggle('active');
-      }
+    toggle() { 
+      document.getElementById('side-window').classList.toggle('active');
+      if(document.getElementById('side-window').classList.contains('active')) this.refreshDirectory();
     },
     
-    // Add a ticket to the dashboard with enhanced properties
-    addTicket(busId, route, seats, status = 'active', options = {}) {
-      const ticket = {
-        id: Date.now(),
-        busId,
-        route,
-        seats,
-        status,
-        // Enhanced properties
-        eta: options.eta || null,
-        occupancy: options.occupancy || null,
-        routeLabel: options.routeLabel || null,
-        stepper: options.stepper || [
-          { label: route.split('➔')[0] || 'Start', completed: true, current: false },
-          { label: 'En Route', completed: false, current: true },
-          { label: route.split('➔')[1] || 'End', completed: false, current: false }
-        ]
-      };
-      
-      this.tickets.push(ticket);
-      this.render();
-      return ticket.id;
-    },
-    
-    // Remove a ticket from the dashboard
-    removeTicket(ticketId) {
-      this.tickets = this.tickets.filter(t => t.id !== ticketId);
-      this.render();
-    },
-    
-    // Clear all tickets
-    clearTickets() {
-      this.tickets = [];
-      this.render();
-    },
-    
-    // Render the dashboard with current tickets
-    render() {
+    // This function builds the RedBus-style cards based on live map data
+    refreshDirectory() {
       const container = document.getElementById('tickets-container');
       if (!container) return;
-      
-      if (this.tickets.length === 0) {
+
+      // Filter out buses that are offline
+      const activeBuses = [];
+      const now = Date.now();
+      state.buses.forEach((busData, busId) => {
+        const age = now - busData.lastUpdate;
+        if (age < THRESHOLDS.OFFLINE_MS) {
+          activeBuses.push({ id: busId, ...busData });
+        }
+      });
+
+      if (activeBuses.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <div class="empty-state-icon">🎟️</div>
-            <div class="empty-state-text">No Active Tickets</div>
-            <div class="empty-state-subtext">Your booked tickets will appear here</div>
+            <div class="empty-state-icon">🚏</div>
+            <div class="empty-state-text">No Buses Currently Active</div>
+            <div class="empty-state-subtext">Waiting for fleet telemetry...</div>
           </div>
         `;
         return;
       }
-      
-      container.innerHTML = this.tickets.map(ticket => {
-        // Determine occupancy badge style
-        const occupancyPercent = ticket.occupancy || Math.floor(Math.random() * 40 + 30);
-        let occupancyClass = '';
-        if (occupancyPercent >= 80) occupancyClass = 'high';
-        else if (occupancyPercent >= 50) occupancyClass = 'medium';
-        
-        // Determine status for journey
-        const isDelayed = ticket.status === 'delayed';
-        const statusIcon = isDelayed ? '⏱️' : '✓';
-        const statusClass = isDelayed ? 'delayed' : 'on-time';
-        
-        // Build tracking stepper HTML
-        const stepperHTML = ticket.stepper ? `
-          <div class="tracking-stepper">
-            ${ticket.stepper.map((step, idx) => {
-              const circleClass = step.completed ? 'active' : step.current ? 'current' : 'gray';
-              const spanClass = step.current ? 'current' : step.completed ? 'active' : '';
-              return `
-                <div class="step">
-                  <div class="circle ${circleClass}"></div>
-                  <span class="${spanClass}">${step.label}</span>
-                </div>
-                ${idx < ticket.stepper.length - 1 ? '<div class="line' + (step.completed ? ' completed' : step.current ? '' : ' dotted') + '"></div>' : ''}
-              `;
-            }).join('')}
-          </div>
-        ` : '';
-        
-        return `
-          <div class="ticket-container">
-            <div class="ticket-header">
-              <div class="route-info">
-                <span class="route-label">${Security.escapeHTML(ticket.routeLabel || 'ROUTE ' + ticket.busId.substring(0, 2))}</span>
-                <h4>📍 ${Security.escapeHTML(ticket.route)}</h4>
-              </div>
-              <div class="occupancy-badge ${occupancyClass}">${occupancyPercent}% Full</div>
+
+      // Fetch live bus data from API and render cards
+      fetch(`${API_BASE}/api/bus_locations`)
+        .then(res => res.json())
+        .then(data => {
+            container.innerHTML = data.filter(b => {
+                const age = Date.now() - new Date(b.last_updated).getTime();
+                return age < THRESHOLDS.OFFLINE_MS; // Only show online buses
+            }).map(b => {
+                const occ = Math.round((b.passenger_count / BUS_CAPACITY) * 100);
+                const occClass = occ >= 80 ? 'high' : occ >= 50 ? 'medium' : '';
+                
+                let nextStop = "En route";
+                const stopObj = STOP_DATA.find(s => s.stop_id === b.current_stop_id);
+                if(stopObj) nextStop = stopObj.name;
+
+                return `
+                  <div class="ticket-container">
+                    <div class="ticket-header">
+                      <div class="route-info">
+                        <span class="route-label">BUS ${b.bus_id}</span>
+                        <h4 style="font-size: 14px;">Next: ${nextStop}</h4>
+                      </div>
+                      <div class="occupancy-badge ${occClass}">${occ}% Full</div>
+                    </div>
+                    
+                    <div class="ticket-meta">
+                      <div class="meta-item"><div class="meta-label">👥 Passengers</div><div class="meta-value">${b.passenger_count}</div></div>
+                      <div class="meta-item"><div class="meta-label">⚡ Status</div><div class="meta-value on-time">🟢 Live</div></div>
+                    </div>
+                    
+                    <div class="ticket-footer">
+                      <button class="action-btn primary" onclick="Dashboard.trackBus('${b.bus_id}', ${b.latitude}, ${b.longitude})">📍 Track on Map</button>
+                    </div>
+                  </div>
+                `;
+            }).join('');
+        })
+        .catch(err => {
+          if(window.SMART_TRANSIT_DEBUG) console.error('Failed to load live fleet data:', err);
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">⚠️</div>
+              <div class="empty-state-text">Connection Error</div>
+              <div class="empty-state-subtext">Could not load fleet data</div>
             </div>
-            
-            ${stepperHTML}
-            
-            <div class="ticket-meta">
-              <div class="meta-item">
-                <div class="meta-label">🚌 Bus ID</div>
-                <div class="meta-value">#${ticket.busId}</div>
-              </div>
-              <div class="meta-item">
-                <div class="meta-label">⏱️ ETA</div>
-                <div class="meta-value ${statusClass}">${statusIcon} ${ticket.eta || '8 mins'}</div>
-              </div>
-              <div class="meta-item">
-                <div class="meta-label">🪑 Seats</div>
-                <div class="meta-value">${ticket.seats} Reserved</div>
-              </div>
-              <div class="meta-item">
-                <div class="meta-label">📊 Status</div>
-                <div class="meta-value ${ticket.status === 'active' ? 'on-time' : 'delayed'}">${ticket.status === 'active' ? '🟢 Active' : '🟠 Delayed'}</div>
-              </div>
-            </div>
-            
-            <div class="ticket-footer">
-              <button class="action-btn primary" onclick="Dashboard.openTracking('${ticket.busId}')">📍 Live Location</button>
-              <button class="action-btn secondary" onclick="Dashboard.removeTicket(${ticket.id})">🚨 SOS</button>
-            </div>
-          </div>
-        `;
-      }).join('');
+          `;
+        });
     },
     
-    // Open live tracking for a specific bus
-    openTracking(busId) {
-      console.log('🔍 Opening live tracking for Bus #' + busId);
-      UI.toast('Tracking Bus #' + busId + '...', 'success');
-      // You can integrate this with your monitoring system
-      if (typeof window.startMonitoring === 'function') {
-        window.startMonitoring(busId);
+    // Centers the map on the specific bus when clicked
+    trackBus(busId, lat, lng) {
+      this.close(); // Close the dashboard
+      map.flyTo([lat, lng], 16, { animate: true, duration: 1.5 }); // Swoop the map to the bus
+      
+      // Auto-select it in the dropdown so monitoring starts
+      const busSelect = document.getElementById('busSelect');
+      if (busSelect) {
+          busSelect.value = busId;
+          // Trigger the change event
+          busSelect.dispatchEvent(new Event('change')); 
       }
+      
+      UI.toast(`Tracking ${busId}...`, 'success');
     }
   };
   
-  // ================= LOAD REAL TICKETS FROM BACKEND =================
-  window.loadRealTickets = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/user/tickets`, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      const tickets = data.tickets || [];
-
-      if (window.SMART_TRANSIT_DEBUG) {
-        console.log('🎟️ Loaded real tickets from backend:', tickets);
-      }
-
-      window.Dashboard.clearTickets();
-
-      // Map backend data to dashboard format
-      tickets.forEach(ticket => {
-        window.Dashboard.addTicket(
-          ticket.bus_id,
-          `${ticket.source} ➔ ${ticket.destination}`,
-          ticket.reserved_seats,
-          ticket.status, // 'active' or 'delayed'
-          {
-            eta: `${ticket.eta_minutes} mins`,
-            occupancy: ticket.occupancy_percentage, // 0-100 from database
-            routeLabel: ticket.route_code, // e.g., "ROUTE 4A"
-            stepper: [
-              { 
-                label: ticket.source, 
-                completed: true, 
-                current: false 
-              },
-              { 
-                label: ticket.current_stop, 
-                completed: false, 
-                current: true 
-              },
-              { 
-                label: ticket.destination, 
-                completed: false, 
-                current: false 
-              }
-            ]
-          }
-        );
-      });
-
-      if (window.SMART_TRANSIT_DEBUG) {
-        console.log('✅ Dashboard updated with real ticket data');
-      }
-    } catch (error) {
-      console.error('❌ Failed to load real tickets:', error);
-      UI.toast('Could not load tickets. Please try again.', 'error');
-      
-      // Fallback to sample data if real data fails
-      if (window.SMART_TRANSIT_DEBUG) {
-        console.log('⚠️ Falling back to sample tickets...');
-      }
-    }
-  };
+  // Dashboard refresh is now automatic via refreshDirectory()
   
   // Initialize the dashboard on page load
   document.addEventListener('DOMContentLoaded', () => {
