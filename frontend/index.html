@@ -1623,7 +1623,7 @@
       <div style="display: flex; border-bottom: 1px solid rgba(0,0,0,0.1); background: var(--panel-bg-solid);">
         <button id="tab-fleet" class="tab-btn active" onclick="switchTab('fleet')">🚌 Fleet</button>
         <button id="tab-planner" class="tab-btn" onclick="switchTab('planner')">🧭 Planner</button>
-        <!-- Tickets tab removed - replaced with Live Fleet Directory -->
+        <button id="tab-tickets" class="tab-btn" onclick="switchTab('tickets')">📋 Directory</button>
         <button id="tab-analytics" class="tab-btn admin-feature" onclick="switchTab('analytics')" style="display:none;">📈 Analytics</button>
       </div>
 
@@ -1636,6 +1636,11 @@
                 <select id="busSelect" style="width:100%;box-sizing:border-box;"><option value="ALL">All Fleet</option></select>
                 <div id="stopSearchWrap" style="position:relative;">
                   <input id="stopSearch" type="text" placeholder="🔍 Search stop name…" style="width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #ddd;" />
+                </div>
+                <!-- Proximity Actions -->
+                <div style="display:flex;gap:6px;">
+                  <button class="ui-btn btn-blue" id="btn-nearest-bus" style="flex:1; font-size:12px;">🚌 Nearest Bus</button>
+                  <button class="ui-btn btn-blue" id="btn-nearest-stop" style="flex:1; font-size:12px;">🚏 Nearest Stop</button>
                 </div>
                 <button id="monitorStopBtn" class="ui-btn btn-indigo" style="width:100%;">🔔 Monitor</button>
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding-top:4px;color:var(--text-color);">
@@ -1763,9 +1768,9 @@
         <!-- 2) Route Comparison (Estimated) -->
         <section class="panel-section" id="panel-route-compare">
           <div id="route-compare-card" class="hud-panel" style="display: block; min-width: unset;">
-            <div style="font-weight:700;margin-bottom:6px">🧭 Route Comparison</div>
+            <div style="font-weight:700;margin-bottom:6px">🧭 Transit Options</div>
             <div id="route-compare-body">
-              <!-- Content injected by updateRouteComparison() -->
+              <div class="placeholder-text">Enter a destination to see live bus options.</div>
             </div>
           </div>
         </section>
@@ -1793,6 +1798,22 @@
             <div style="text-align: center;">
               <div id="stat-avg-pax" style="font-size: 28px; font-weight: 900; color: #10b981;">0</div>
               <div style="font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase;">Avg Passengers</div>
+            </div>
+          </div>
+
+          <!-- Route Occupancy Analysis -->
+          <div class="hud-panel" style="padding: 10px; background: #fff; margin-top: 12px;">
+            <div style="font-size: 11px; font-weight: bold; color: #888; margin-bottom: 5px;">Route-wise Avg Occupancy</div>
+            <div style="position: relative; height: 180px; width: 100%;">
+              <canvas id="routeOccupancyChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Fleet Congestion Status -->
+          <div class="hud-panel" style="padding: 10px; background: #fff; margin-top: 12px;">
+            <div style="font-size: 11px; font-weight: bold; color: #888; margin-bottom: 5px;">Fleet Occupancy Status</div>
+            <div style="position: relative; height: 180px; width: 100%;">
+              <canvas id="fleetStatusChart"></canvas>
             </div>
           </div>
         </section>
@@ -2497,15 +2518,6 @@
     if (portalSignout) portalSignout.style.display = 'inline-flex';
 
     UI.toast(`Welcome back, ${state.currentUser.username}!`, 'success');
-    
-    // Open the dashboard on successful login for commuters
-    if (!isAdmin && window.Dashboard) {
-      setTimeout(() => {
-        window.Dashboard.open();
-        // Refresh the Live Fleet Directory
-        window.Dashboard.refreshDirectory();
-      }, 500);
-    }
   }
 
   const userCard = document.getElementById('btn-user-portal');
@@ -3112,6 +3124,48 @@
 
     function renderRouteSuggestions(items, inputEl){
       sugEl.innerHTML = '';
+      
+      // Add 'Current Location' as the first option
+      const currentLocDiv = document.createElement('div');
+      currentLocDiv.className = 'suggestion-item';
+      currentLocDiv.innerHTML = '<span style="font-weight: 700; color: #2563eb;">📍 Use Current Location</span>';
+      currentLocDiv.addEventListener('click', async () => {
+        // Try to use cached location first, otherwise fetch current position
+        let userPos = state.lastUserPos;
+        
+        if (!userPos && navigator.geolocation) {
+          UI.toast('📍 Getting your location...', 'info');
+          try {
+            const pos = await new Promise((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(
+                pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                err => reject(err),
+                { enableHighAccuracy: true, timeout: 5000 }
+              );
+            });
+            userPos = pos;
+            state.lastUserPos = pos;
+          } catch(err) {
+            UI.toast('⚠️ Could not get your location', 'warning');
+            console.warn('Geolocation error:', err);
+            return;
+          }
+        }
+        
+        if (userPos) {
+          inputEl.value = '📍 Current Location';
+          setRoutePoint(inputEl === fromEl ? 'from' : 'to', userPos);
+          sugEl.style.display = 'none';
+          
+          // Center map on user location with smooth animation
+          map.flyTo([userPos.lat, userPos.lng], 16, { animate: true, duration: 0.8 });
+        } else {
+          UI.toast('⚠️ Location not available', 'warning');
+        }
+      });
+      sugEl.appendChild(currentLocDiv);
+      
+      // Add all other search results
       items.forEach(it => {
         const d = document.createElement('div'); d.className = 'suggestion-item'; d.textContent = it.display_name;
         d.addEventListener('click', () => {
@@ -3122,7 +3176,8 @@
         });
         sugEl.appendChild(d);
       });
-      if(items.length){
+      
+      if(items.length || true){
         const rect = inputEl.getBoundingClientRect();
         sugEl.style.position = 'fixed'; sugEl.style.left = rect.left + 'px'; sugEl.style.top = rect.bottom + 'px'; sugEl.style.width = rect.width + 'px';
         sugEl.style.display = 'block';
@@ -3454,6 +3509,80 @@
 
   /* Bus Selection Listener */
   document.getElementById("busSelect").addEventListener("change", () => syncFleet());
+
+  /* ================ PROXIMITY FEATURES ================ */
+  // Nearest Bus Button
+  document.getElementById('btn-nearest-bus')?.addEventListener('click', () => {
+    if (!state.userMarker || !state.userMarker.getLatLng) {
+      UI.toast('⏳ Please wait for GPS location', 'info');
+      return;
+    }
+
+    const userPos = state.userMarker.getLatLng();
+    const now = Date.now();
+    let nearestBus = null;
+    let nearestDist = Infinity;
+
+    // Loop through all buses to find the nearest online bus
+    state.buses.forEach((entry, busId) => {
+      if (!entry.pos) return;
+      
+      const age = now - entry.lastUpdate;
+      // Skip offline buses
+      if (age > THRESHOLDS.OFFLINE_MS) return;
+
+      const dist = map.distance(userPos, [entry.pos.lat, entry.pos.lon]);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearestBus = busId;
+      }
+    });
+
+    if (nearestBus) {
+      // Update the dropdown and trigger change event
+      const busSelect = document.getElementById('busSelect');
+      busSelect.value = nearestBus;
+      busSelect.dispatchEvent(new Event('change'));
+      
+      // Show success toast with distance
+      const distText = nearestDist >= 1000 
+        ? `${(nearestDist / 1000).toFixed(1)}km` 
+        : `${Math.round(nearestDist)}m`;
+      UI.toast(`🚌 Nearest bus is ${distText} away`, 'success');
+      
+      // Fly to the bus location
+      const busEntry = state.buses.get(nearestBus);
+      if (busEntry && busEntry.pos) {
+        map.flyTo([busEntry.pos.lat, busEntry.pos.lon], 16, { animate: true });
+      }
+    } else {
+      UI.toast('⚠️ No active buses found nearby', 'warning');
+    }
+  });
+
+  // Nearest Stop Button
+  document.getElementById('btn-nearest-stop')?.addEventListener('click', () => {
+    if (!state.userMarker || !state.userMarker.getLatLng) {
+      UI.toast('⏳ Please wait for GPS location', 'info');
+      return;
+    }
+
+    const userPos = state.userMarker.getLatLng();
+    const nearest = findNearestStop(userPos);
+
+    if (nearest && nearest.stop) {
+      // Select the stop (this will update UI and zoom to it)
+      selectStopById(nearest.stop.stop_id);
+      
+      // Show success toast with stop name and distance
+      const distText = nearest.dist >= 1000 
+        ? `${(nearest.dist / 1000).toFixed(1)}km` 
+        : `${Math.round(nearest.dist)}m`;
+      UI.toast(`🚏 ${nearest.stop.name} (${distText})`, 'success');
+    } else {
+      UI.toast('⚠️ No stops found', 'warning');
+    }
+  });
 
   /* Stop selection & monitor controls handled via selectStopById() and monitor button */
 
@@ -3887,7 +4016,15 @@
         return;
       }
 
-      // 4. Calculate ETAs to the boarding stop
+      // 4. Calculate walking distances and ETAs
+      const walkingSpeed = 5; // km/h
+      const walkToStopDist = map.distance([startLatLng.lat, startLatLng.lng], [startStop.latitude, startStop.longitude]);
+      const walkFromStopDist = map.distance([endStop.latitude, endStop.longitude], [endLatLng.lat, endLatLng.lng]);
+      
+      const walkToStopMins = computeETAinMinutes(walkToStopDist, walkingSpeed);
+      const walkFromStopMins = computeETAinMinutes(walkFromStopDist, walkingSpeed);
+      
+      // 5. Calculate ETAs to the boarding stop
       const cards = availableBuses.map(b => {
         const distToPickup = map.distance([b.latitude, b.longitude], [startStop.latitude, startStop.longitude]);
         const pickupEta = computeETAinMinutes(distToPickup, b.current_speed || 18);
@@ -3895,36 +4032,82 @@
         // Estimate the ride duration
         const distJourney = map.distance([startStop.latitude, startStop.longitude], [endStop.latitude, endStop.longitude]);
         const journeyEta = computeETAinMinutes(distJourney, 18);
+        
+        // Total trip time
+        const totalTripTime = walkToStopMins + pickupEta + journeyEta + walkFromStopMins;
 
         const occ = Math.round((b.passenger_count / BUS_CAPACITY) * 100);
         const occClass = occ >= 80 ? 'high' : occ >= 50 ? 'medium' : '';
 
-        return { ...b, pickupEta, journeyEta, occ, occClass };
-      }).sort((a, b) => a.pickupEta - b.pickupEta);
+        return { ...b, pickupEta, journeyEta, occ, occClass, totalTripTime };
+      }).sort((a, b) => a.totalTripTime - b.totalTripTime);
 
-      // 5. Render Beautiful Transit Itinerary Cards
+      // 6. Render Multi-Modal Transit Itinerary with Walking Steps
       body.innerHTML = `
-        <div style="font-size: 13px; color: #2563eb; font-weight: 700; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">
-          📍 Board at: ${startStop.name}
+        <div style="font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 16px; text-align: center;">
+          🚶 Multi-Modal Route Options
         </div>
         ${cards.map(b => `
-          <div class="ticket-container" style="margin: 0 0 12px 0; border-left: 4px solid #10b981; padding: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div class="ticket-container" style="margin: 0 0 16px 0; border-left: 4px solid #10b981; padding: 16px; background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(249,250,251,0.98) 100%);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
               <div>
-                <div style="font-weight: 800; font-size: 16px; color: #1e293b;">BUS ${b.bus_id}</div>
+                <div style="font-weight: 800; font-size: 17px; color: #1e293b;">BUS ${b.bus_id}</div>
                 <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Route: ${b.route_name.replace('_', ' ')}</div>
               </div>
               <div class="occupancy-badge ${b.occClass}" style="margin:0;">${b.occ}% Full</div>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
-              <div style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
-                <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700;">Arrives In</div>
-                <div style="font-size: 16px; font-weight: 800; color: #f59e0b;">~${b.pickupEta} min</div>
+            <!-- Multi-Modal Timeline -->
+            <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+              <!-- Step 1: Walk to Bus Stop -->
+              <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
+                <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
+                <div style="flex: 1;">
+                  <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Bus Stop</div>
+                  <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
+                    <span style="font-weight: 600; color: #f59e0b;">${walkToStopMins} min</span> 
+                    <span style="color: #94a3b8;">•</span> 
+                    ${Math.round(walkToStopDist)} meters
+                  </div>
+                  <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${startStop.name}</div>
+                </div>
               </div>
-              <div style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
-                <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700;">Ride Time</div>
-                <div style="font-size: 16px; font-weight: 800; color: #10b981;">~${b.journeyEta} min</div>
+              
+              <!-- Step 2: Take Bus -->
+              <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
+                <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚌</div>
+                <div style="flex: 1;">
+                  <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Take Bus ${b.bus_id}</div>
+                  <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
+                    <span style="color: #94a3b8;">Arrives in</span> 
+                    <span style="font-weight: 600; color: #f59e0b;">${b.pickupEta} min</span>
+                    <span style="color: #94a3b8;">•</span>
+                    <span style="color: #94a3b8;">Ride</span>
+                    <span style="font-weight: 600; color: #10b981;">${b.journeyEta} min</span>
+                  </div>
+                  <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${endStop.name}</div>
+                </div>
+              </div>
+              
+              <!-- Step 3: Walk to Destination -->
+              <div style="display: flex; align-items: start;">
+                <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
+                <div style="flex: 1;">
+                  <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Destination</div>
+                  <div style="font-size: 12px; color: #64748b;">
+                    <span style="font-weight: 600; color: #f59e0b;">${walkFromStopMins} min</span> 
+                    <span style="color: #94a3b8;">•</span> 
+                    ${Math.round(walkFromStopDist)} meters
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Total Trip Summary -->
+            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
+              <div style="font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Total Trip Time</div>
+              <div style="font-size: 20px; font-weight: 800; color: #fff;">
+                ~${b.totalTripTime} min
               </div>
             </div>
             
@@ -4332,8 +4515,13 @@
   renderTrafficHeatmap();
   setInterval(renderTrafficHeatmap, 300000);
 
-  // Main fleet sync and journey completion polling
-  setInterval(() => { syncFleet(); checkJourneyCompletion(); }, THRESHOLDS.POLL_MS);
+  // Main fleet sync - Only fetch if the tab is visible to save battery/server load
+  setInterval(() => { 
+    if (document.visibilityState === 'visible') {
+        syncFleet(); 
+    }
+    checkJourneyCompletion(); 
+  }, THRESHOLDS.POLL_MS);
 
   /**
    * Periodic cleanup: Remove old markers and stale cache entries.
@@ -4504,42 +4692,98 @@
 
   /* ================= LIVE ANALYTICS ENGINE ================= */
   let speedChart = null;
+  let routeChart = null;
+  let statusChart = null;
   let chartTimeLabels = [];
   let chartSpeedData = [];
 
   function initChart() {
-    const ctx = document.getElementById('fleetSpeedChart');
-    if (!ctx) return;
-    
-    speedChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: chartTimeLabels,
-        datasets: [{
-          label: 'Avg Speed',
-          data: chartSpeedData,
-          borderColor: '#2563eb',
-          backgroundColor: 'rgba(37, 99, 235, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4, // Smooth curves
-          pointRadius: 3
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: { duration: 400 }, // Snappy animations
-        scales: {
-          y: { beginAtZero: true, max: 60, ticks: { font: { size: 10 } } },
-          x: { ticks: { font: { size: 9 }, maxTicksLimit: 6 } }
+    // Initialize Speed Chart (Line Chart)
+    const speedCtx = document.getElementById('fleetSpeedChart');
+    if (speedCtx && !speedChart) {
+      speedChart = new Chart(speedCtx, {
+        type: 'line',
+        data: {
+          labels: chartTimeLabels,
+          datasets: [{
+            label: 'Avg Speed',
+            data: chartSpeedData,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3
+          }]
         },
-        plugins: { legend: { display: false } }
-      }
-    });
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 400 },
+          scales: {
+            y: { beginAtZero: true, max: 60, ticks: { font: { size: 10 } } },
+            x: { ticks: { font: { size: 9 }, maxTicksLimit: 6 } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    // Initialize Route Occupancy Chart (Bar Chart)
+    const routeCtx = document.getElementById('routeOccupancyChart');
+    if (routeCtx && !routeChart) {
+      routeChart = new Chart(routeCtx, {
+        type: 'bar',
+        data: {
+          labels: ['R1', 'R2', 'R3', 'R4', 'R5'],
+          datasets: [{
+            label: 'Avg Passenger Count',
+            data: [0, 0, 0, 0, 0],
+            backgroundColor: '#3b82f6',
+            borderColor: '#1e40af',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'x',
+          scales: {
+            y: { beginAtZero: true, max: 50, ticks: { font: { size: 9 } } },
+            x: { ticks: { font: { size: 10 } } }
+          },
+          plugins: { legend: { display: true, position: 'top' } }
+        }
+      });
+    }
+
+    // Initialize Fleet Status Chart (Doughnut Chart)
+    const statusCtx = document.getElementById('fleetStatusChart');
+    if (statusCtx && !statusChart) {
+      statusChart = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Available (< 50%)', 'Standing (50-80%)', 'Packed (> 80%)'],
+          datasets: [{
+            data: [0, 0, 0],
+            backgroundColor: ['#06b6d4', '#3b82f6', '#4c1d95'],
+            borderColor: ['#0891b2', '#1e40af', '#2e1065'],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 10 } },
+            tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed}` } }
+          }
+        }
+      });
+    }
   }
 
-  // Calculate stats and push them to the chart
+  // Calculate stats and push them to the charts
   function updateAnalyticsDashboard(data) {
     if (!speedChart) initChart();
     if (!Array.isArray(data)) return;
@@ -4548,13 +4792,31 @@
     let countSpeed = 0;
     let totalPax = 0;
     let activeCount = 0;
+    let routeOccupancy = { 'R1': [], 'R2': [], 'R3': [], 'R4': [], 'R5': [] };
+    let statusCounts = { available: 0, standing: 0, packed: 0 };
 
     data.forEach(bus => {
-      // Only count buses that are actively moving/reporting  
       const age = Date.now() - new Date(bus.last_updated).getTime();
       if (age < THRESHOLDS.OFFLINE_MS) {
         activeCount++;
-        totalPax += (bus.passenger_count || 0);
+        const paxCount = bus.passenger_count || 0;
+        totalPax += paxCount;
+        
+        // Track occupancy by route
+        const routeName = (bus.route_name || 'R1').replace('_', '');
+        if (routeOccupancy[routeName]) {
+          routeOccupancy[routeName].push(paxCount);
+        }
+
+        // Categorize bus occupancy status
+        const occupancyPercent = (paxCount / BUS_CAPACITY) * 100;
+        if (occupancyPercent < 50) {
+          statusCounts.available++;
+        } else if (occupancyPercent <= 80) {
+          statusCounts.standing++;
+        } else {
+          statusCounts.packed++;
+        }
         
         // Grab computed speed from our state map if available
         const stateEntry = state.buses.get(bus.bus_id);
@@ -4574,7 +4836,7 @@
     if (elBuses) elBuses.textContent = activeCount;
     if (elPax) elPax.textContent = avgPax;
 
-    // Update the Chart
+    // Update Speed Chart
     if (speedChart) {
       const now = new Date();
       const timeStr = now.getHours() + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
@@ -4582,12 +4844,27 @@
       chartTimeLabels.push(timeStr);
       chartSpeedData.push(avgSpeed);
 
-      // Keep only the last 15 data points so the chart scrolls left
       if (chartTimeLabels.length > 15) {
         chartTimeLabels.shift();
         chartSpeedData.shift();
       }
       speedChart.update();
+    }
+
+    // Update Route Occupancy Chart
+    if (routeChart) {
+      const routeAvgData = ['R1', 'R2', 'R3', 'R4', 'R5'].map(route => {
+        const routeData = routeOccupancy[route] || [];
+        return routeData.length > 0 ? Math.round(routeData.reduce((a, b) => a + b, 0) / routeData.length) : 0;
+      });
+      routeChart.data.datasets[0].data = routeAvgData;
+      routeChart.update();
+    }
+
+    // Update Fleet Status Chart
+    if (statusChart) {
+      statusChart.data.datasets[0].data = [statusCounts.available, statusCounts.standing, statusCounts.packed];
+      statusChart.update();
     }
   }
 
@@ -4651,8 +4928,10 @@
     if (activeContent) activeContent.classList.add('active');
 
     // Force Chart.js to recalculate its container size when the analytics tab becomes visible
-    if (tabName === 'analytics' && speedChart) {
-      speedChart.resize();
+    if (tabName === 'analytics') {
+      if (speedChart) speedChart.resize();
+      if (routeChart) routeChart.resize();
+      if (statusChart) statusChart.resize();
     }
 
     setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
