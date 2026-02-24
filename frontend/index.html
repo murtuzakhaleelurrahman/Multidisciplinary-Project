@@ -1010,6 +1010,232 @@
     color: #64748b;
     font-size: 13px;
   }
+
+  /* ================= SIDE DASHBOARD WINDOW ================= */
+  .side-window {
+    position: fixed;
+    top: 0;
+    left: -350px; /* Hidden by default */
+    width: 320px;
+    height: 100%;
+    background: var(--panel-bg-solid);
+    box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+    z-index: 2000; /* Higher than Leaflet map */
+    transition: left 0.4s ease-in-out; /* Smooth slide */
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(0,0,0,0.1);
+  }
+
+  .side-window.active {
+    left: 0; /* Slides into view */
+  }
+
+  .side-header {
+    padding: 20px;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .side-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  .close-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .close-btn:hover {
+    background: rgba(255,255,255,0.3);
+  }
+
+  .side-content {
+    padding: 15px;
+    overflow-y: auto; /* Scrollable if many tickets */
+    flex: 1;
+  }
+
+  /* Ticket Card Styling */
+  .ticket-card {
+    background: #f8f9fa;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    transition: all 0.2s ease;
+  }
+
+  .ticket-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    border-color: #cbd5e1;
+  }
+
+  .ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+
+  .bus-id {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #1e293b;
+  }
+
+  .status {
+    font-size: 0.75em;
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+
+  .status.active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+  }
+
+  .status.inactive {
+    background: rgba(107, 114, 128, 0.15);
+    color: #4b5563;
+  }
+
+  .ticket-body {
+    margin-bottom: 12px;
+  }
+
+  .ticket-body p {
+    margin: 6px 0;
+    font-size: 13px;
+    color: #475569;
+  }
+
+  .ticket-body strong {
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  .ticket-footer {
+    display: flex;
+    gap: 8px;
+  }
+
+  .view-btn {
+    flex: 1;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 12px;
+    transition: all 0.2s ease;
+  }
+
+  .view-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  }
+
+  .view-btn:active {
+    transform: translateY(0);
+  }
+
+  .view-btn.secondary {
+    background: #e2e8f0;
+    color: #475569;
+  }
+
+  .view-btn.secondary:hover {
+    background: #cbd5e1;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 30px 15px;
+    color: #64748b;
+  }
+
+  .empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+
+  .empty-state-text {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .empty-state-subtext {
+    font-size: 12px;
+    color: #94a3b8;
+  }
+
+  /* Dark mode support for side-window */
+  body.night-mode .side-window {
+    background: var(--panel-bg-solid);
+    border-right-color: rgba(255,255,255,0.1);
+  }
+
+  body.night-mode .ticket-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  body.night-mode .ticket-card:hover {
+    border-color: #475569;
+  }
+
+  body.night-mode .bus-id {
+    color: #f1f5f9;
+  }
+
+  body.night-mode .ticket-body p {
+    color: #cbd5e1;
+  }
+
+  body.night-mode .ticket-body strong {
+    color: #e2e8f0;
+  }
+
+  body.night-mode .view-btn.secondary {
+    background: #334155;
+    color: #e2e8f0;
+  }
+
+  body.night-mode .view-btn.secondary:hover {
+    background: #475569;
+  }
+
+  body.night-mode .empty-state {
+    color: #94a3b8;
+  }
+
+  body.night-mode .empty-state-subtext {
+    color: #64748b;
+  }
   </style>
   </head>
 
@@ -1382,6 +1608,20 @@
     <div><span class="loader"></span> Connecting...</div>
   </div>
 
+  <!-- Side Dashboard Window -->
+  <div id="side-window" class="side-window">
+    <div class="side-header">
+      <h3>My Dashboard</h3>
+      <button id="close-side" class="close-btn">&times;</button>
+    </div>
+    
+    <div class="side-content">
+      <div id="tickets-container">
+        <!-- Tickets will be dynamically injected here -->
+      </div>
+    </div>
+  </div>
+
   <div id="map" role="main" aria-label="Interactive transit map"></div>
 
   <div id="heatmap-overlay" class="hud-panel controls">
@@ -1447,7 +1687,8 @@
     console.log(`🔌 API Base: ${API_BASE}${customAPI ? ' (CUSTOM)' : ''}`);
   }
 
-  /* =============== CENTRALIZED CONFIGURATION =============== */
+  /* =============== CENTRALIZED CONFIGURA
+  TION =============== */
   const CONFIG = {
     // API & Backend
     API_BASE: API_BASE,
@@ -2109,6 +2350,17 @@
     if (portalSignout) portalSignout.style.display = 'inline-flex';
 
     UI.toast(`Welcome back, ${state.currentUser.username}!`, 'success');
+    
+    // Open the dashboard on successful login for commuters
+    if (!isAdmin && window.Dashboard) {
+      setTimeout(() => {
+        window.Dashboard.open();
+        // Add sample ticket for demonstration (can be replaced with actual data from backend)
+        window.Dashboard.clearTickets();
+        window.Dashboard.addTicket('102', 'Vellore - Katpadi', 2, 'active');
+        window.Dashboard.addTicket('105', 'VIT Gate - Melvisharam', 1, 'active');
+      }, 500);
+    }
   }
 
   const userCard = document.getElementById('btn-user-portal');
@@ -4213,6 +4465,125 @@
     // Small delay to allow CSS transition to trigger
     setTimeout(() => modal.classList.add('active'), 10); 
   };
+
+  /* ================= SIDE DASHBOARD WINDOW ================= */
+  window.Dashboard = {
+    tickets: [],
+    
+    // Initialize the dashboard
+    init() {
+      const sideWindow = document.getElementById('side-window');
+      const closeBtn = document.getElementById('close-side');
+      
+      if (!closeBtn) return;
+      
+      closeBtn.addEventListener('click', () => {
+        this.close();
+      });
+    },
+    
+    // Open the dashboard
+    open() {
+      const sideWindow = document.getElementById('side-window');
+      if (sideWindow) {
+        sideWindow.classList.add('active');
+        if (window.SMART_TRANSIT_DEBUG) console.log('📊 Dashboard opened');
+      }
+    },
+    
+    // Close the dashboard
+    close() {
+      const sideWindow = document.getElementById('side-window');
+      if (sideWindow) {
+        sideWindow.classList.remove('active');
+        if (window.SMART_TRANSIT_DEBUG) console.log('📊 Dashboard closed');
+      }
+    },
+    
+    // Toggle the dashboard
+    toggle() {
+      const sideWindow = document.getElementById('side-window');
+      if (sideWindow) {
+        sideWindow.classList.toggle('active');
+      }
+    },
+    
+    // Add a ticket to the dashboard
+    addTicket(busId, route, seats, status = 'active') {
+      const ticket = {
+        id: Date.now(),
+        busId,
+        route,
+        seats,
+        status
+      };
+      
+      this.tickets.push(ticket);
+      this.render();
+      return ticket.id;
+    },
+    
+    // Remove a ticket from the dashboard
+    removeTicket(ticketId) {
+      this.tickets = this.tickets.filter(t => t.id !== ticketId);
+      this.render();
+    },
+    
+    // Clear all tickets
+    clearTickets() {
+      this.tickets = [];
+      this.render();
+    },
+    
+    // Render the dashboard with current tickets
+    render() {
+      const container = document.getElementById('tickets-container');
+      if (!container) return;
+      
+      if (this.tickets.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">🎟️</div>
+            <div class="empty-state-text">No Active Tickets</div>
+            <div class="empty-state-subtext">Your booked tickets will appear here</div>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = this.tickets.map(ticket => `
+        <div class="ticket-card">
+          <div class="ticket-header">
+            <span class="bus-id">Bus #${ticket.busId}</span>
+            <span class="status ${ticket.status}">${ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}</span>
+          </div>
+          <div class="ticket-body">
+            <p><strong>Route:</strong> ${Security.escapeHTML(ticket.route)}</p>
+            <p><strong>Seats:</strong> ${ticket.seats} (Reserved)</p>
+          </div>
+          <div class="ticket-footer">
+            <button class="view-btn" onclick="Dashboard.openTracking('${ticket.busId}')">Track Live</button>
+            <button class="view-btn secondary" onclick="Dashboard.removeTicket(${ticket.id})">Cancel</button>
+          </div>
+        </div>
+      `).join('');
+    },
+    
+    // Open live tracking for a specific bus
+    openTracking(busId) {
+      console.log('🔍 Opening live tracking for Bus #' + busId);
+      UI.toast('Tracking Bus #' + busId + '...', 'success');
+      // You can integrate this with your monitoring system
+      if (typeof window.startMonitoring === 'function') {
+        window.startMonitoring(busId);
+      }
+    }
+  };
+  
+  // Initialize the dashboard on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    window.Dashboard.init();
+  });
 
   (function(){
     const panel = document.getElementById('side-panel');
