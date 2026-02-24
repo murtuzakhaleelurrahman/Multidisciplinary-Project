@@ -78,8 +78,14 @@
   }
 
   /* Permanently hide OSRM text directions but keep the map line */
-  .leaflet-routing-container.leaflet-bar {
+  .leaflet-routing-container.leaflet-bar,
+  .leaflet-routing-container,
+  .leaflet-routing-alt,
+  .leaflet-routing-alternatives-container {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
 
   .planner-input {
@@ -1394,8 +1400,9 @@
       <div id="content-tickets" class="tab-content">
         <section class="panel-section" id="panel-directory">
           <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Active Routes</div>
-          <div id="tickets-container" style="display: flex; flex-direction: column; gap: 10px;">
-            <div class="placeholder-text">Click to load active fleet...</div>
+          <button class="ui-btn btn-blue" style="width: 100%; margin-bottom: 12px;" onclick="window.Dashboard.refreshDirectory();">🔄 Refresh Directory</button>
+          <div id="live-directory-list" style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="placeholder-text">Click Refresh to load active fleet...</div>
           </div>
         </section>
       </div>
@@ -2723,27 +2730,22 @@
   state.routingInProgress = false;
 
   routing.on('routesfound', function(e) {
-    const routes = e.routes;
     state.routingInProgress = false;
-    
     const btn = document.querySelector('[data-action="find-route"]');
     if (btn) { btn.disabled = false; btn.textContent = '🔍 Find Best Route'; }
     
-    if (routes && routes.length > 0) {
-      const waypoints = routes[0].waypoints;
-      
-      // Get exact coordinates of the Start and End points chosen by user
+    const waypoints = routing.getWaypoints().filter(w => w && w.latLng);
+    if (waypoints.length > 0) {
       const startPoint = waypoints[0].latLng;
       const lastPoint = waypoints[waypoints.length - 1].latLng;
       state.destination = lastPoint;
-      state.routeStartPoint = startPoint; // Store for periodic refresh
+      state.routeStartPoint = startPoint; 
 
-      // Hide the default OSRM UI box completely
       const osrmContainer = document.querySelector('.leaflet-routing-container');
       if (osrmContainer) osrmContainer.style.display = 'none';
       
-      // Generate our custom Bus Itinerary!
-      updateTransitOptions(startPoint, lastPoint);
+      // Pass waypoints to allow line-bending
+      updateTransitOptions(startPoint, lastPoint, waypoints);
     }
   });
 
@@ -3618,7 +3620,7 @@
   }
 
   /* ================= SMART TRANSIT ROUTING ENGINE ================= */
-  async function updateTransitOptions(startLatLng, endLatLng) {
+  async function updateTransitOptions(startLatLng, endLatLng, currentWaypoints = []) {
     const card = document.getElementById('route-compare-card');
     const body = document.getElementById('route-compare-body');
     if (!card || !body) return;
@@ -3626,119 +3628,88 @@
     card.style.display = 'block';
     body.innerHTML = `<div class="placeholder-text"><span class="loader"></span> Scanning live fleet...</div>`;
 
-    // 1. Find the nearest bus stops to the user's start and end points
     const startNode = findNearestStop(startLatLng);
     const endNode = findNearestStop(endLatLng);
 
     if (!startNode || !endNode || startNode.dist > 2000 || endNode.dist > 2000) {
-      body.innerHTML = `
-        <div class="empty-state" style="padding: 20px 10px;">
-          <div style="font-size: 30px; margin-bottom: 10px;">🚶</div>
-          <div class="empty-state-text">No Stops Nearby</div>
-          <div class="empty-state-subtext">Try selecting locations closer to the bus routes.</div>
-        </div>`;
+      body.innerHTML = `<div class="empty-state" style="padding: 20px 10px;"><div style="font-size: 30px; margin-bottom: 10px;">🚶</div><div class="empty-state-text">No Stops Nearby</div></div>`;
       return;
     }
 
     const startStop = startNode.stop;
     const endStop = endNode.stop;
 
-    // 2. Check for Direct Routes First (without directional constraint)
     let directRoutes = [];
+    let startRoutes = [];
+    let endRoutes = [];
+
     for (const [routeName, stopIds] of Object.entries(BUS_ROUTES)) {
-      if (stopIds.includes(startStop.stop_id) && stopIds.includes(endStop.stop_id)) {
-        directRoutes.push(routeName);
-      }
+      if (stopIds.includes(startStop.stop_id)) startRoutes.push(routeName);
+      if (stopIds.includes(endStop.stop_id)) endRoutes.push(routeName);
+      if (stopIds.includes(startStop.stop_id) && stopIds.includes(endStop.stop_id)) directRoutes.push(routeName);
     }
 
     let transferRoute = null;
-    let transferStop = null;
     let transferStopObj = null;
     let isTransfer = false;
 
-    // 3. If no direct route, calculate transfer
     if (directRoutes.length === 0) {
-      // Find all routes containing the start stop
-      const startRoutes = [];
-      for (const [routeName, stopIds] of Object.entries(BUS_ROUTES)) {
-        if (stopIds.includes(startStop.stop_id)) {
-          startRoutes.push(routeName);
-        }
-      }
-
-      // Find all routes containing the end stop
-      const endRoutes = [];
-      for (const [routeName, stopIds] of Object.entries(BUS_ROUTES)) {
-        if (stopIds.includes(endStop.stop_id)) {
-          endRoutes.push(routeName);
-        }
-      }
-
-      // If no routes serve either stop, fail
       if (startRoutes.length === 0 || endRoutes.length === 0) {
-        body.innerHTML = `
-          <div class="empty-state" style="padding: 20px 10px;">
-            <div style="font-size: 30px; margin-bottom: 10px;">🚷</div>
-            <div class="empty-state-text">No Route Found</div>
-            <div class="empty-state-subtext">No bus service connects ${startStop.name} and ${endStop.name}.</div>
-          </div>`;
+        body.innerHTML = `<div class="empty-state"><div style="font-size: 30px;">🚷</div><div class="empty-state-text">No Route Found</div></div>`;
         return;
       }
-
-      // Find a common stop between start and end routes (transfer point)
-      for (const startRoute of startRoutes) {
-        const startStopIds = BUS_ROUTES[startRoute];
-        for (const endRoute of endRoutes) {
-          const endStopIds = BUS_ROUTES[endRoute];
-          
-          // Find a common stop (other than start/end)
-          for (const stopId of startStopIds) {
-            if (endStopIds.includes(stopId) && stopId !== startStop.stop_id) {
-              transferStop = stopId;
-              transferRoute = { firstLeg: startRoute, secondLeg: endRoute };
-              // Find the stop object for the transfer point
-              transferStopObj = STOP_DATA.find(s => s.stop_id === transferStop);
+      
+      for (const sRoute of startRoutes) {
+        const sStops = BUS_ROUTES[sRoute];
+        for (const eRoute of endRoutes) {
+          const eStops = BUS_ROUTES[eRoute];
+          for (const stopId of sStops) {
+            if (eStops.includes(stopId) && stopId !== startStop.stop_id) {
+              transferRoute = { firstLeg: sRoute, secondLeg: eRoute };
+              transferStopObj = STOP_DATA.find(s => s.stop_id === stopId);
               break;
             }
           }
-          if (transferStop) break;
+          if (transferStopObj) break;
         }
-        if (transferStop) break;
+        if (transferStopObj) break;
       }
 
-      if (!transferStop) {
-        body.innerHTML = `
-          <div class="empty-state" style="padding: 20px 10px;">
-            <div style="font-size: 30px; margin-bottom: 10px;">🚷</div>
-            <div class="empty-state-text">No Route Available</div>
-            <div class="empty-state-subtext">Transfer routes not available between these locations.</div>
-          </div>`;
-        return;
+      if (!transferStopObj) {
+         body.innerHTML = `<div class="empty-state"><div style="font-size: 30px;">🚷</div><div class="empty-state-text">No Route Available</div></div>`;
+         return;
       }
 
       isTransfer = true;
-      directRoutes = [transferRoute.firstLeg]; // Fetch buses on the first leg
+      directRoutes = [transferRoute.firstLeg];
+
+      // MAGIC FIX 1: Bend the map line to force it through the transfer city!
+      if (currentWaypoints.length === 2 && transferStopObj) {
+          // Add the transfer stop as a waypoint in the middle
+          routing.spliceWaypoints(1, 0, L.latLng(transferStopObj.latitude, transferStopObj.longitude));
+          // Do NOT return here. Let the UI build the initial itinerary based on the first leg, 
+          // and OSRM will silently redraw the blue line in the background.
+      }
     }
 
-    // 4. Fetch live active buses
     try {
       const res = await fetch(`${API_BASE}/api/bus_locations`);
       const allBuses = await res.json();
       const now = Date.now();
 
-      const routeNamesToFetch = Array.isArray(directRoutes) ? directRoutes : [directRoutes.firstLeg];
+      // MAGIC FIX 2: Ultra-robust bus filtering (Route Name OR Stop Proximity)
+      const routeNamesToFetch = Array.isArray(directRoutes) ? directRoutes : [directRoutes[0]];
+      const targetStops = routeNamesToFetch.reduce((acc, r) => acc.concat(BUS_ROUTES[r] || []), []);
+
       const availableBuses = allBuses.filter(b => {
         const age = now - new Date(b.last_updated).getTime();
-        return age < THRESHOLDS.OFFLINE_MS && routeNamesToFetch.some(r => b.route_name === r);
+        const matchesRoute = routeNamesToFetch.includes(b.route_name);
+        const matchesStop = targetStops.includes(b.current_stop_id);
+        return age < THRESHOLDS.OFFLINE_MS && (matchesRoute || matchesStop);
       });
 
       if (availableBuses.length === 0) {
-        body.innerHTML = `
-          <div class="empty-state" style="padding: 20px 10px;">
-            <div style="font-size: 30px; margin-bottom: 10px;">🚏</div>
-            <div class="empty-state-text">Waiting for Bus</div>
-            <div class="empty-state-subtext">No active buses currently operating on this path.</div>
-          </div>`;
+        body.innerHTML = `<div class="empty-state" style="padding: 20px 10px;"><div style="font-size: 30px; margin-bottom: 10px;">🚏</div><div class="empty-state-text">Waiting for Bus</div><div class="empty-state-subtext">No active buses currently operating on this path.</div></div>`;
         return;
       }
 
@@ -4739,6 +4710,13 @@
     if (activeBtn) activeBtn.classList.add('active');
     if (activeContent) activeContent.classList.add('active');
 
+    // Force universal panels to always display (Overrides any lingering CSS conflicts)
+    const universalPanels = ['panel-stop-summary', 'panel-monitor', 'panel-legend', 'panel-heatmap'];
+    universalPanels.forEach(panelId => {
+       const p = document.getElementById(panelId);
+       if (p) p.style.display = 'block';
+    });
+
     // Force Chart.js to recalculate its container size when the analytics tab becomes visible
     if (tabName === 'analytics') {
       if (speedChart) speedChart.resize();
@@ -4795,7 +4773,7 @@
     
     // This function builds the RedBus-style cards based on live map data
     refreshDirectory() {
-      const container = document.getElementById('tickets-container');
+      const container = document.getElementById('live-directory-list');
       if (!container) return;
 
       // Dictionary to convert system route codes into redBus-style Origin ➔ Destination strings
