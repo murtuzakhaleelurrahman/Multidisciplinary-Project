@@ -1274,6 +1274,9 @@
         <strong style="font-size: 18px;">Smart Transit</strong>
       </div>
       <div class="yt-menu">
+        <button class="yt-menu-item" data-action="locate-user">
+          <span class="yt-icon">📍</span><span class="yt-label">Locate Me</span>
+        </button>
         <button id="tab-fleet" class="yt-menu-item active" onclick="switchTab('fleet')">
           <span class="yt-icon">🚌</span><span class="yt-label">Fleet</span>
         </button>
@@ -1310,65 +1313,6 @@
                 </div>
               </div>
             </div>
-        </section>
-
-        <!-- 2) Stop Summary Card -->
-        <section class="panel-section" id="panel-stop-summary">
-          <div id="stop-summary-card" class="hud-panel" style="display: none; min-width: unset;">
-            <div id="stop-summary-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
-              <div style="font-weight:700;">📍 Stop Summary</div>
-              <span class="stop-summary-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
-            </div>
-            
-            <div id="stop-summary-body" style="display: block; margin-top: 10px;">
-              <div style="font-size:13px;line-height:1.4">
-                <div><b id="stop-name">—</b></div>
-                <div>Best Bus: <span id="stop-best-bus">—</span></div>
-                <div>Arrival: <span id="stop-best-eta">--</span></div>
-                <div>Confidence: <span id="stop-confidence">—</span></div>
-
-                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd;">
-                  <label style="font-size: 11px; font-weight: 600;">Alert me when</label>
-                  <div style="display: flex; gap: 5px; margin-top: 4px;">
-                    <input type="number" id="alertThreshold" value="5" min="1" max="30"
-                           style="width: 50px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
-                    <span style="font-size: 11px; align-self: center;">mins away</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 3) Monitoring Status HUD -->
-        <section class="panel-section" id="panel-monitor">
-          <div id="monitor-hud" class="hud-panel" style="display: block; min-width: unset;">
-            <div id="monitor-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
-              <div style="font-weight:700;">🔔 Monitoring Status</div>
-              <span class="monitor-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
-            </div>
-            
-            <div id="monitor-body-wrap" style="display: block; margin-top: 10px;">
-              <div id="monitor-body">
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 4) Occupancy Legend -->
-        <section class="panel-section" id="panel-legend">
-          <div class="hud-panel legend" style="margin-top:10px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="legend-toggle">
-              <b>📊 Occupancy</b>
-              <span class="legend-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
-            </div>
-            <div id="legend-body" style="display: none; margin-top: 6px;">
-              <div class="legend-item"><div class="color-box" style="background:#06b6d4"></div> Seats Avail</div>
-              <div class="legend-item"><div class="color-box" style="background:#3b82f6"></div> Standing</div>
-              <div class="legend-item"><div class="color-box" style="background:#4c1d95"></div> Packed</div>
-              <div class="legend-item"><div class="color-box" style="background:#888"></div> Offline</div>
-            </div>
-          </div>
         </section>
 
         <!-- System Controls (moved inside panel for single control surface) -->
@@ -1497,6 +1441,85 @@
         </section>
       </div>
 
+      <!-- Universal Tracking Panels (visible across all tabs) -->
+      <!-- 2) Stop Summary Card -->
+      <section class="panel-section" id="panel-stop-summary">
+        <div id="stop-summary-card" class="hud-panel" style="display: none; min-width: unset;">
+          <div id="stop-summary-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+            <div style="font-weight:700;">📍 Stop Summary</div>
+            <span class="stop-summary-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+          </div>
+          
+          <div id="stop-summary-body" style="display: block; margin-top: 10px;">
+            <div style="font-size:13px;line-height:1.4">
+              <div><b id="stop-name">—</b></div>
+              <div>Best Bus: <span id="stop-best-bus">—</span></div>
+              <div>Arrival: <span id="stop-best-eta">--</span></div>
+              <div>Confidence: <span id="stop-confidence">—</span></div>
+
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd;">
+                <label style="font-size: 11px; font-weight: 600;">Alert me when</label>
+                <div style="display: flex; gap: 5px; margin-top: 4px;">
+                  <input type="number" id="alertThreshold" value="5" min="1" max="30"
+                         style="width: 50px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
+                  <span style="font-size: 11px; align-self: center;">mins away</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3) Monitoring Status HUD -->
+      <section class="panel-section" id="panel-monitor">
+        <div id="monitor-hud" class="hud-panel" style="display: block; min-width: unset;">
+          <div id="monitor-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+            <div style="font-weight:700;">🔔 Monitoring Status</div>
+            <span class="monitor-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+          </div>
+          
+          <div id="monitor-body-wrap" style="display: block; margin-top: 10px;">
+            <div id="monitor-body">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4) Occupancy Legend -->
+      <section class="panel-section" id="panel-legend">
+        <div class="hud-panel legend" style="margin-top:10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="legend-toggle">
+            <b>📊 Occupancy</b>
+            <span class="legend-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+          </div>
+          <div id="legend-body" style="display: none; margin-top: 6px;">
+            <div class="legend-item"><div class="color-box" style="background:#06b6d4"></div> Seats Avail</div>
+            <div class="legend-item"><div class="color-box" style="background:#3b82f6"></div> Standing</div>
+            <div class="legend-item"><div class="color-box" style="background:#4c1d95"></div> Packed</div>
+            <div class="legend-item"><div class="color-box" style="background:#888"></div> Offline</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5) Traffic Heatmap -->
+      <section class="panel-section" id="panel-heatmap">
+        <div class="hud-panel legend">
+          <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="heatmap-toggle">
+            <b>🧯 Traffic Heatmap</b>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <button id="heatmap-visibility" class="ui-btn btn-green" data-action="toggle-heatmap" style="padding:4px 8px; font-size:12px;">On</button>
+              <span class="heatmap-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+            </div>
+          </div>
+          <div id="heatmap-body" style="display: block; margin-top: 6px;">
+            <div class="legend-item"><div class="color-box" style="background:#16a34a"></div> Smooth (&gt;25 km/h)</div>
+            <div class="legend-item"><div class="color-box" style="background:#f97316"></div> Slow (15-25 km/h)</div>
+            <div class="legend-item"><div class="color-box" style="background:#dc2626"></div> Heavy (&lt;15 km/h)</div>
+            <div class="legend-item" style="opacity:0.7; font-size:11px;">Dashed = heavy traffic</div>
+          </div>
+        </div>
+      </section>
+
     </div>
 
   </aside>
@@ -1525,26 +1548,7 @@
   <!-- Floating Map Menu Button -->
   <button id="mapToggleBtn" aria-label="Open Menu">☰</button>
 
-  <div id="heatmap-overlay" class="hud-panel controls">
-    <div class="heatmap-legend">
-      <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="heatmap-toggle">
-        <b>🧯 Traffic Heatmap</b>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <button id="heatmap-visibility" class="ui-btn btn-green" data-action="toggle-heatmap" style="padding:4px 8px; font-size:12px;">On</button>
-          <span class="heatmap-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
-        </div>
-      </div>
-      <div id="heatmap-body" style="display: block; margin-top: 6px;">
-        <div class="legend-item"><div class="color-box" style="background:#16a34a"></div> Smooth (&gt;25 km/h)</div>
-        <div class="legend-item"><div class="color-box" style="background:#f97316"></div> Slow (15-25 km/h)</div>
-        <div class="legend-item"><div class="color-box" style="background:#dc2626"></div> Heavy (&lt;15 km/h)</div>
-        <div class="legend-item" style="opacity:0.7; font-size:11px;">Dashed = heavy traffic</div>
-      </div>
-    </div>
-  </div>
-
   <div class="ui-stack">
-    <button class="btn-locate-pill" data-action="locate-user">📍 Locate Me</button>
     <div id="ui-layer" style="opacity:0; transition:opacity 1s;">
       <!-- top-layer controls moved into #side-panel to declutter map -->
     </div>
@@ -4929,43 +4933,28 @@
     function setOpen(open){
       if(open){ 
         panel.classList.add('open');
-        // Hide the map toggle button when panel is open
         if(mapToggleBtn) mapToggleBtn.style.display = 'none'; 
       }
       else { 
         panel.classList.remove('open');
-        // Show the map toggle button when panel is closed
         if(mapToggleBtn) mapToggleBtn.style.display = 'block'; 
       }
     }
     
-    // Handle innerToggleBtn (in the left sidebar header - closes the panel)
     if(innerToggleBtn) {
-      innerToggleBtn.addEventListener('click', (e) => { 
-        e.stopPropagation(); 
-        setOpen(false); 
-      });
+      innerToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(false); });
     }
     
-    // Handle mapToggleBtn (floating button on the map - opens the panel)
     if(mapToggleBtn) {
-      mapToggleBtn.addEventListener('click', (e) => { 
-        e.stopPropagation(); 
-        setOpen(true); 
-      });
+      mapToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(true); });
     }
     
-    // Force Leaflet to recalculate when the panel finishes animating
-    panel.addEventListener('transitionend', () => {
-        window.dispatchEvent(new Event('resize'));
-    });
+    // Force map to recalculate after slide animation
+    panel.addEventListener('transitionend', () => window.dispatchEvent(new Event('resize')));
     
-    // Initialize open by default for desktop, hidden for mobile
-    if (window.innerWidth > 768) {
-      setOpen(true);
-    } else {
-      setOpen(false);
-    }
+    // Auto-open on desktop, start closed on mobile
+    if (window.innerWidth > 768) setOpen(true);
+    else setOpen(false);
   })();
 
   /* Occupancy Legend Toggle */
