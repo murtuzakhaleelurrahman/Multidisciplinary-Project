@@ -1451,15 +1451,15 @@
       <!-- Universal Tracking Panels (visible across all tabs) -->
       <!-- 2) Stop Summary Card -->
       <section class="panel-section" id="panel-stop-summary">
-        <div id="stop-summary-card" class="hud-panel" style="display: none; min-width: unset;">
+        <div id="stop-summary-card" class="hud-panel" style="display: block; min-width: unset;">
           <div id="stop-summary-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
             <div style="font-weight:700;">📍 Stop Summary</div>
-            <span class="stop-summary-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+            <span class="stop-summary-chevron" style="font-size: 12px; opacity: 0.5;">▶</span>
           </div>
           
-          <div id="stop-summary-body" style="display: block; margin-top: 10px;">
+          <div id="stop-summary-body" style="display: none; margin-top: 10px;">
             <div style="font-size:13px;line-height:1.4">
-              <div><b id="stop-name">—</b></div>
+              <div><b id="stop-name">Select a stop on map</b></div>
               <div>Best Bus: <span id="stop-best-bus">—</span></div>
               <div>Arrival: <span id="stop-best-eta">--</span></div>
               <div>Confidence: <span id="stop-confidence">—</span></div>
@@ -1482,10 +1482,10 @@
         <div id="monitor-hud" class="hud-panel" style="display: block; min-width: unset;">
           <div id="monitor-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
             <div style="font-weight:700;">🔔 Monitoring Status</div>
-            <span class="monitor-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+            <span class="monitor-chevron" style="font-size: 12px; opacity: 0.5;">▶</span>
           </div>
           
-          <div id="monitor-body-wrap" style="display: block; margin-top: 10px;">
+          <div id="monitor-body-wrap" style="display: none; margin-top: 10px;">
             <div id="monitor-body">
             </div>
           </div>
@@ -2181,7 +2181,14 @@
 
     // Admin features visibility
     const adminFeatures = document.querySelectorAll('[data-action="add-bus"], [data-action="reset-system"], .admin-feature');
-    adminFeatures.forEach(el => el.style.display = isAdmin ? 'block' : 'none');
+    adminFeatures.forEach(el => {
+      if (isAdmin) {
+        // Keep the perfect alignment for the YouTube-style menu buttons
+        el.style.display = el.classList.contains('yt-menu-item') ? 'flex' : 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    });
 
     // Show extended admin controls
     const extendedAdmin = document.getElementById('admin-extended-controls');
@@ -2559,6 +2566,9 @@
       else { state.recommendedBusId = null; }
       highlightStopMarker(state.selectedStop.stop_id);
       updateStopSummaryCard();
+      // Auto-expand Stop Summary when user selects a stop
+      document.getElementById('stop-summary-body').style.display = 'block';
+      document.querySelector('.stop-summary-chevron').textContent = '▼';
       // Zoom to stop for clearer context
       try{ map.flyTo([state.selectedStop.latitude, state.selectedStop.longitude], 16); }catch(e){
         console.warn('Map fly-to animation failed:', e);
@@ -3272,6 +3282,9 @@
       state.stopAlertStates.set(state.monitoredBusId, { notified_1000:false, notified_300:false, notified_100:false, paused:false, lastDistance:null });
       alert(`Monitoring ${state.monitoredBusId} → ${state.selectedStop.name}`);
       updateMonitorHUD();
+      // Auto-expand Monitoring Status when user starts monitoring
+      document.getElementById('monitor-body-wrap').style.display = 'block';
+      document.querySelector('.monitor-chevron').textContent = '▼';
       
       // AUTO-COLLAPSE: Intent-aware behavior - collapse Route Planner when monitoring is active
       const routingWrapper = document.getElementById('routing-wrapper');
@@ -3620,88 +3633,93 @@
   }
 
   /* ================= SMART TRANSIT ROUTING ENGINE ================= */
-  async function updateTransitOptions(startLatLng, endLatLng, currentWaypoints = []) {
+  async function updateTransitOptions(startLatLng, endLatLng, currentWaypoints = [], isBackground = false) {
     const card = document.getElementById('route-compare-card');
     const body = document.getElementById('route-compare-body');
     if (!card || !body) return;
 
-    card.style.display = 'block';
-    body.innerHTML = `<div class="placeholder-text"><span class="loader"></span> Scanning live fleet...</div>`;
-
-    const startNode = findNearestStop(startLatLng);
-    const endNode = findNearestStop(endLatLng);
-
-    if (!startNode || !endNode || startNode.dist > 2000 || endNode.dist > 2000) {
-      body.innerHTML = `<div class="empty-state" style="padding: 20px 10px;"><div style="font-size: 30px; margin-bottom: 10px;">🚶</div><div class="empty-state-text">No Stops Nearby</div></div>`;
-      return;
-    }
-
-    const startStop = startNode.stop;
-    const endStop = endNode.stop;
-
-    let directRoutes = [];
-    let startRoutes = [];
-    let endRoutes = [];
-
-    for (const [routeName, stopIds] of Object.entries(BUS_ROUTES)) {
-      if (stopIds.includes(startStop.stop_id)) startRoutes.push(routeName);
-      if (stopIds.includes(endStop.stop_id)) endRoutes.push(routeName);
-      if (stopIds.includes(startStop.stop_id) && stopIds.includes(endStop.stop_id)) directRoutes.push(routeName);
-    }
-
-    let transferRoute = null;
-    let transferStopObj = null;
-    let isTransfer = false;
-
-    if (directRoutes.length === 0) {
-      if (startRoutes.length === 0 || endRoutes.length === 0) {
-        body.innerHTML = `<div class="empty-state"><div style="font-size: 30px;">🚷</div><div class="empty-state-text">No Route Found</div></div>`;
-        return;
-      }
-      
-      for (const sRoute of startRoutes) {
-        const sStops = BUS_ROUTES[sRoute];
-        for (const eRoute of endRoutes) {
-          const eStops = BUS_ROUTES[eRoute];
-          for (const stopId of sStops) {
-            if (eStops.includes(stopId) && stopId !== startStop.stop_id) {
-              transferRoute = { firstLeg: sRoute, secondLeg: eRoute };
-              transferStopObj = STOP_DATA.find(s => s.stop_id === stopId);
-              break;
-            }
-          }
-          if (transferStopObj) break;
-        }
-        if (transferStopObj) break;
-      }
-
-      if (!transferStopObj) {
-         body.innerHTML = `<div class="empty-state"><div style="font-size: 30px;">🚷</div><div class="empty-state-text">No Route Available</div></div>`;
-         return;
-      }
-
-      isTransfer = true;
-      directRoutes = [transferRoute.firstLeg];
-
-      // MAGIC FIX 1: Bend the map line to force it through the transfer city!
-      if (currentWaypoints.length === 2 && transferStopObj) {
-          // Add the transfer stop as a waypoint in the middle
-          routing.spliceWaypoints(1, 0, L.latLng(transferStopObj.latitude, transferStopObj.longitude));
-          // Do NOT return here. Let the UI build the initial itinerary based on the first leg, 
-          // and OSRM will silently redraw the blue line in the background.
-      }
+    // Only show the loader if the user actually clicked the "Find Route" button
+    if (!isBackground) {
+      card.style.display = 'block';
+      body.innerHTML = `<div class="placeholder-text"><span class="loader"></span> Scanning live fleet...</div>`;
     }
 
     try {
+      const startNode = findNearestStop(startLatLng);
+      const endNode = findNearestStop(endLatLng);
+
+      if (!startNode || !endNode || startNode.dist > 2000 || endNode.dist > 2000) {
+        if (!isBackground) body.innerHTML = `<div class="empty-state" style="padding: 20px 10px;"><div style="font-size: 30px; margin-bottom: 10px;">🚶</div><div class="empty-state-text">No Stops Nearby</div></div>`;
+        return;
+      }
+
+      const startStop = startNode.stop;
+      const endStop = endNode.stop;
+
+      let directRoutes = [];
+      let startRoutes = [];
+      let endRoutes = [];
+
+      for (const [routeName, stopIds] of Object.entries(BUS_ROUTES)) {
+        if (stopIds.includes(startStop.stop_id)) startRoutes.push(routeName);
+        if (stopIds.includes(endStop.stop_id)) endRoutes.push(routeName);
+        if (stopIds.includes(startStop.stop_id) && stopIds.includes(endStop.stop_id)) directRoutes.push(routeName);
+      }
+
+      let transferRoute = null;
+      let transferStopObj = null;
+      let isTransfer = false;
+
+      if (directRoutes.length === 0) {
+        if (startRoutes.length === 0 || endRoutes.length === 0) {
+          if (!isBackground) body.innerHTML = `<div class="empty-state"><div style="font-size: 30px;">🚷</div><div class="empty-state-text">No Route Found</div></div>`;
+          return;
+        }
+        
+        for (const sRoute of startRoutes) {
+          const sStops = BUS_ROUTES[sRoute];
+          for (const eRoute of endRoutes) {
+            const eStops = BUS_ROUTES[eRoute];
+            for (const stopId of sStops) {
+              if (eStops.includes(stopId) && stopId !== startStop.stop_id) {
+                transferRoute = { firstLeg: sRoute, secondLeg: eRoute };
+                transferStopObj = STOP_DATA.find(s => s.stop_id === stopId);
+                break;
+              }
+            }
+            if (transferStopObj) break;
+          }
+          if (transferStopObj) break;
+        }
+
+        if (!transferStopObj) {
+           if (!isBackground) body.innerHTML = `<div class="empty-state"><div style="font-size: 30px;">🚷</div><div class="empty-state-text">No Route Available</div></div>`;
+           return;
+        }
+
+        isTransfer = true;
+        directRoutes = [transferRoute.firstLeg];
+
+        // Bend the map line to force it through the transfer city!
+        if (currentWaypoints.length === 2) {
+            routing.spliceWaypoints(1, 0, L.latLng(transferStopObj.latitude, transferStopObj.longitude));
+            return; 
+        }
+      }
+
       const res = await fetch(`${API_BASE}/api/bus_locations`);
       const allBuses = await res.json();
       const now = Date.now();
 
-      // MAGIC FIX 2: Ultra-robust bus filtering (Route Name OR Stop Proximity)
+      if (!Array.isArray(allBuses)) throw new Error("Invalid API Response");
+
       const routeNamesToFetch = Array.isArray(directRoutes) ? directRoutes : [directRoutes[0]];
       const targetStops = routeNamesToFetch.reduce((acc, r) => acc.concat(BUS_ROUTES[r] || []), []);
 
       const availableBuses = allBuses.filter(b => {
+        // Drop any bus missing GPS data so it doesn't crash the UI math
+        if (typeof b.latitude !== 'number' || typeof b.longitude !== 'number') return false;
+        
         const age = now - new Date(b.last_updated).getTime();
         const matchesRoute = routeNamesToFetch.includes(b.route_name);
         const matchesStop = targetStops.includes(b.current_stop_id);
@@ -3709,39 +3727,28 @@
       });
 
       if (availableBuses.length === 0) {
-        body.innerHTML = `<div class="empty-state" style="padding: 20px 10px;"><div style="font-size: 30px; margin-bottom: 10px;">🚏</div><div class="empty-state-text">Waiting for Bus</div><div class="empty-state-subtext">No active buses currently operating on this path.</div></div>`;
+        if (!isBackground) body.innerHTML = `<div class="empty-state" style="padding: 20px 10px;"><div style="font-size: 30px; margin-bottom: 10px;">🚏</div><div class="empty-state-text">Waiting for Bus</div><div class="empty-state-subtext">No active buses currently operating on this path.</div></div>`;
         return;
       }
 
-      // 5. Calculate walking distances and ETAs
-      const walkingSpeed = 5; // km/h
-      const walkToStopDist = map.distance([startLatLng.lat, startLatLng.lng], [startStop.latitude, startStop.longitude]);
-      const walkFromStopDist = isTransfer 
-        ? map.distance([endStop.latitude, endStop.longitude], [endLatLng.lat, endLatLng.lng])
-        : map.distance([endStop.latitude, endStop.longitude], [endLatLng.lat, endLatLng.lng]);
+      const walkingSpeed = 5; 
+      // Safely calculate distance passing raw objects
+      const walkToStopDist = map.distance(startLatLng, [startStop.latitude, startStop.longitude]);
+      const walkFromStopDist = map.distance([endStop.latitude, endStop.longitude], endLatLng);
       
       const walkToStopMins = computeETAinMinutes(walkToStopDist, walkingSpeed);
       const walkFromStopMins = computeETAinMinutes(walkFromStopDist, walkingSpeed);
-      const transferPenalty = isTransfer ? 5 : 0; // 5-minute transfer penalty
+      const transferPenalty = isTransfer ? 5 : 0; 
 
-      // 6. Calculate ETAs
       const cards = availableBuses.map(b => {
         const distToPickup = map.distance([b.latitude, b.longitude], [startStop.latitude, startStop.longitude]);
         const pickupEta = computeETAinMinutes(distToPickup, b.current_speed || 18);
         
         let journeyEta;
         if (isTransfer) {
-          // Distance to transfer stop
-          journeyEta = computeETAinMinutes(
-            map.distance([startStop.latitude, startStop.longitude], [transferStopObj.latitude, transferStopObj.longitude]),
-            18
-          );
+          journeyEta = computeETAinMinutes(map.distance([startStop.latitude, startStop.longitude], [transferStopObj.latitude, transferStopObj.longitude]), 18);
         } else {
-          // Distance to final destination
-          journeyEta = computeETAinMinutes(
-            map.distance([startStop.latitude, startStop.longitude], [endStop.latitude, endStop.longitude]),
-            18
-          );
+          journeyEta = computeETAinMinutes(map.distance([startStop.latitude, startStop.longitude], [endStop.latitude, endStop.longitude]), 18);
         }
 
         const totalTripTime = walkToStopMins + pickupEta + journeyEta + transferPenalty + walkFromStopMins;
@@ -3751,121 +3758,79 @@
         return { ...b, pickupEta, journeyEta, occ, occClass, totalTripTime };
       }).sort((a, b) => a.totalTripTime - b.totalTripTime);
 
-      // 7. Build status banner
       const statusBanner = isTransfer 
         ? `<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; margin-bottom: 12px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #92400e;">🔄 Transfer Required at ${transferStopObj.name}</div>`
         : `<div style="background: #d1fae5; border-left: 4px solid #10b981; padding: 10px; margin-bottom: 12px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #065f46;">✅ Direct Route Available</div>`;
 
-      // 8. Build itinerary steps
       const itinerarySteps = (b) => {
         if (isTransfer) {
           return `
-            <!-- Step 1: Walk to Bus Stop -->
             <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
               <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
               <div style="flex: 1;">
                 <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Bus Stop</div>
-                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
-                  <span style="font-weight: 600; color: #f59e0b;">${walkToStopMins} min</span> 
-                  <span style="color: #94a3b8;">•</span> 
-                  ${Math.round(walkToStopDist)} meters
-                </div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;"><span style="font-weight: 600; color: #f59e0b;">${walkToStopMins} min</span> <span style="color: #94a3b8;">•</span> ${Math.round(walkToStopDist)} meters</div>
                 <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${startStop.name}</div>
               </div>
             </div>
             
-            <!-- Step 2: Take First Bus to Transfer Stop -->
             <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
               <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚌</div>
               <div style="flex: 1;">
                 <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Take Bus ${b.bus_id}</div>
-                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
-                  <span style="color: #94a3b8;">Arrives in</span> 
-                  <span style="font-weight: 600; color: #f59e0b;">${b.pickupEta} min</span>
-                  <span style="color: #94a3b8;">•</span>
-                  <span style="color: #94a3b8;">Ride</span>
-                  <span style="font-weight: 600; color: #10b981;">${b.journeyEta} min</span>
-                </div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;"><span style="color: #94a3b8;">Arrives in</span> <span style="font-weight: 600; color: #f59e0b;">${b.pickupEta} min</span> <span style="color: #94a3b8;">•</span> <span style="color: #94a3b8;">Ride</span> <span style="font-weight: 600; color: #10b981;">${b.journeyEta} min</span></div>
                 <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${transferStopObj.name}</div>
               </div>
             </div>
 
-            <!-- Step 3: Transfer to Second Bus -->
             <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
               <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🔄</div>
               <div style="flex: 1;">
                 <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Transfer to ${transferRoute.secondLeg.replace('_', ' ')}</div>
-                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
-                  <span style="font-weight: 600; color: #f59e0b;">5 min</span> 
-                  <span style="color: #94a3b8;">•</span>
-                  <span style="color: #94a3b8;">Wait for connecting bus</span>
-                </div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;"><span style="font-weight: 600; color: #f59e0b;">5 min</span> <span style="color: #94a3b8;">•</span> Wait for connecting bus</div>
                 <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${transferStopObj.name}</div>
               </div>
             </div>
 
-            <!-- Step 4: Walk to Destination -->
             <div style="display: flex; align-items: start;">
               <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
               <div style="flex: 1;">
                 <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Destination</div>
-                <div style="font-size: 12px; color: #64748b;">
-                  <span style="font-weight: 600; color: #f59e0b;">${walkFromStopMins} min</span> 
-                  <span style="color: #94a3b8;">•</span> 
-                  ${Math.round(walkFromStopDist)} meters
-                </div>
+                <div style="font-size: 12px; color: #64748b;"><span style="font-weight: 600; color: #f59e0b;">${walkFromStopMins} min</span> <span style="color: #94a3b8;">•</span> ${Math.round(walkFromStopDist)} meters</div>
               </div>
             </div>
           `;
         } else {
           return `
-            <!-- Step 1: Walk to Bus Stop -->
             <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
               <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
               <div style="flex: 1;">
                 <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Bus Stop</div>
-                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
-                  <span style="font-weight: 600; color: #f59e0b;">${walkToStopMins} min</span> 
-                  <span style="color: #94a3b8;">•</span> 
-                  ${Math.round(walkToStopDist)} meters
-                </div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;"><span style="font-weight: 600; color: #f59e0b;">${walkToStopMins} min</span> <span style="color: #94a3b8;">•</span> ${Math.round(walkToStopDist)} meters</div>
                 <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${startStop.name}</div>
               </div>
             </div>
             
-            <!-- Step 2: Take Bus -->
             <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
               <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚌</div>
               <div style="flex: 1;">
                 <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Take Bus ${b.bus_id}</div>
-                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
-                  <span style="color: #94a3b8;">Arrives in</span> 
-                  <span style="font-weight: 600; color: #f59e0b;">${b.pickupEta} min</span>
-                  <span style="color: #94a3b8;">•</span>
-                  <span style="color: #94a3b8;">Ride</span>
-                  <span style="font-weight: 600; color: #10b981;">${b.journeyEta} min</span>
-                </div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;"><span style="color: #94a3b8;">Arrives in</span> <span style="font-weight: 600; color: #f59e0b;">${b.pickupEta} min</span> <span style="color: #94a3b8;">•</span> <span style="color: #94a3b8;">Ride</span> <span style="font-weight: 600; color: #10b981;">${b.journeyEta} min</span></div>
                 <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${endStop.name}</div>
               </div>
             </div>
             
-            <!-- Step 3: Walk to Destination -->
             <div style="display: flex; align-items: start;">
               <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
               <div style="flex: 1;">
                 <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Destination</div>
-                <div style="font-size: 12px; color: #64748b;">
-                  <span style="font-weight: 600; color: #f59e0b;">${walkFromStopMins} min</span> 
-                  <span style="color: #94a3b8;">•</span> 
-                  ${Math.round(walkFromStopDist)} meters
-                </div>
+                <div style="font-size: 12px; color: #64748b;"><span style="font-weight: 600; color: #f59e0b;">${walkFromStopMins} min</span> <span style="color: #94a3b8;">•</span> ${Math.round(walkFromStopDist)} meters</div>
               </div>
             </div>
           `;
         }
       };
 
-      // 9. Render Multi-Modal Transit Itinerary with Transfer Support
       body.innerHTML = `
         ${statusBanner}
         <div style="font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 12px; text-align: center;">
@@ -3881,17 +3846,13 @@
               <div class="occupancy-badge ${b.occClass}" style="margin:0;">${b.occ}% Full</div>
             </div>
             
-            <!-- Multi-Modal Timeline -->
             <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
               ${itinerarySteps(b)}
             </div>
             
-            <!-- Total Trip Summary -->
             <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
               <div style="font-size: 11px; color: rgba(255,255,255,0.9); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Total Trip Time</div>
-              <div style="font-size: 20px; font-weight: 800; color: #fff;">
-                ~${b.totalTripTime} min
-              </div>
+              <div style="font-size: 20px; font-weight: 800; color: #fff;">~${b.totalTripTime} min</div>
             </div>
             
             <button class="ui-btn btn-blue" style="width: 100%; padding: 10px;" onclick="map.flyTo([${b.latitude}, ${b.longitude}], 16, {animate: true});">📍 Locate Bus</button>
@@ -3899,7 +3860,9 @@
         `).join('')}
       `;
     } catch (err) {
-      body.innerHTML = `<div class="placeholder-text">Failed to fetch route data.</div>`;
+      console.error("Transit Routing Error:", err);
+      // Only show error message if the user initiated the click, so we don't overwrite a good UI in the background
+      if (!isBackground) body.innerHTML = `<div class="placeholder-text" style="color: #dc2626;">Failed to fetch route data.</div>`;
     }
   }
 
@@ -4233,8 +4196,10 @@
     document.getElementById("fleetCount").textContent = state.buses.size;
     // Refresh monitoring HUD after fleet processed
     updateMonitorHUD();
-    // Refresh route comparison when destination exists
-    if(state.destination && state.routeStartPoint) updateTransitOptions(state.routeStartPoint, state.destination);
+    // Refresh route comparison silently in the background
+    if(state.destination && state.routeStartPoint) {
+       updateTransitOptions(state.routeStartPoint, state.destination, [], true);
+    }
     // Refresh stop summary card after fleet processed
     updateStopSummaryCard();
 
