@@ -77,13 +77,10 @@
     outline: 2px solid #fff;
   }
 
-  /* Hide OSRM Driving Directions */
-  .leaflet-routing-alt { display: none !important; }
-  .leaflet-routing-container { background: transparent !important; box-shadow: none !important; }
-
-  /* Hide OSRM Driving Directions */
-  .leaflet-routing-alt { display: none !important; }
-  .leaflet-routing-container { background: transparent !important; box-shadow: none !important; }
+  /* Permanently hide OSRM text directions but keep the map line */
+  .leaflet-routing-container.leaflet-bar {
+    display: none !important;
+  }
 
   .planner-input {
     width: 100%;
@@ -774,6 +771,26 @@
     display: none;
   }
 
+  /* Floating Map Menu Button */
+  #mapToggleBtn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 1000;
+    background: var(--panel-bg-solid);
+    color: var(--text-color);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: transform 0.2s;
+  }
+  #mapToggleBtn:hover {
+    transform: scale(1.05);
+  }
+
   /* ================= YOUTUBE-STYLE MENU CSS ================= */
   .yt-menu {
     display: flex;
@@ -1051,403 +1068,7 @@
     font-size: 13px;
   }
 
-  /* ================= SIDE DASHBOARD WINDOW (GLASSMORPHISM) ================= */
-  .side-window {
-    position: fixed;
-    top: 0;
-    left: -350px; /* Hidden by default */
-    width: 340px;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15);
-    z-index: 2000; /* Higher than Leaflet map */
-    transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Smooth slide with bounce */
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid rgba(255, 255, 255, 0.6);
-  }
-
-  .side-window.active {
-    left: 0; /* Slides into view */
-  }
-
-  .side-header {
-    padding: 20px;
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    color: white;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  }
-
-  .side-header h3 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .close-btn {
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    color: white;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    font-size: 24px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(4px);
-  }
-
-  .close-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: scale(1.1);
-  }
-
-  .close-btn:active {
-    transform: scale(0.95);
-  }
-
-  .side-content {
-    padding: 12px 8px;
-    overflow-y: auto; /* Scrollable if many tickets */
-    flex: 1;
-  }
-
-  /* Enhanced Ticket Container */
-  .ticket-container {
-    background: #ffffff;
-    border-radius: 15px;
-    padding: 18px;
-    margin: 10px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-  }
-
-  .ticket-container:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-  }
-
-  .ticket-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 18px;
-    gap: 12px;
-  }
-
-  .route-info {
-    flex: 1;
-  }
-
-  .route-label {
-    display: inline-block;
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    color: white;
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
-  }
-
-  .route-info h4 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 700;
-    color: #1e293b;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .occupancy-badge {
-    background: linear-gradient(135deg, #e1f5fe 0%, #b3e5fc 100%);
-    color: #01579b;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: bold;
-    white-space: nowrap;
-    border: 1px solid rgba(1, 87, 155, 0.1);
-    text-align: center;
-  }
-
-  .occupancy-badge.high {
-    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
-    color: #b71c1c;
-    border-color: rgba(183, 28, 28, 0.1);
-  }
-
-  .occupancy-badge.medium {
-    background: linear-gradient(135deg, #fff8e1 0%, #ffe082 100%);
-    color: #f57f17;
-    border-color: rgba(245, 127, 23, 0.1);
-  }
-
-  /* Tracking Stepper (Timeline) */
-  .tracking-stepper {
-    position: relative;
-    padding: 20px 0;
-    margin: 20px 0;
-    border-top: 1px solid #e0e0e0;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  .step {
-    display: flex;
-    align-items: center;
-    margin: 16px 0;
-    position: relative;
-  }
-
-  .circle {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: #ccc;
-    flex-shrink: 0;
-    border: 2px solid white;
-    box-shadow: 0 0 0 2px #ccc;
-    transition: all 0.3s ease;
-  }
-
-  .circle.active {
-    background: #10b981;
-    box-shadow: 0 0 0 2px white, 0 0 0 4px #10b981;
-  }
-
-  .circle.current {
-    background: #f59e0b;
-    box-shadow: 0 0 0 2px white, 0 0 0 4px #f59e0b;
-    animation: pulse-dot 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse-dot {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.3); }
-  }
-
-  .circle.delayed {
-    background: #ef4444;
-    box-shadow: 0 0 0 2px white, 0 0 0 4px #ef4444;
-  }
-
-  .circle.gray {
-    background: #d1d5db;
-    box-shadow: 0 0 0 2px white, 0 0 0 2px #d1d5db;
-  }
-
-  .step span {
-    margin-left: 12px;
-    font-size: 12px;
-    color: #475569;
-    font-weight: 500;
-    flex: 1;
-  }
-
-  .step span.current {
-    color: #f59e0b;
-    font-weight: 600;
-    font-size: 13px;
-  }
-
-  .step span.active {
-    color: #10b981;
-    font-weight: 600;
-  }
-
-  .line {
-    width: 100%;
-    height: 1px;
-    background: #e0e0e0;
-    margin: 8px 0 8px 6px;
-  }
-
-  .line.dotted {
-    background-image: repeating-linear-gradient(90deg, #e0e0e0, #e0e0e0 4px, transparent 4px, transparent 8px);
-    background-size: 8px 1px;
-  }
-
-  .line.completed {
-    background: linear-gradient(90deg, #10b981, #10b981);
-  }
-
-  /* ETA & Status Info */
-  .ticket-meta {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin: 16px 0;
-  }
-
-  .meta-item {
-    background: #f8fafc;
-    padding: 10px 12px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    text-align: center;
-    transition: all 0.2s ease;
-  }
-
-  .meta-item:hover {
-    background: #eef2ff;
-    border-color: #c7d2fe;
-  }
-
-  .meta-label {
-    font-size: 11px;
-    color: #64748b;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-  }
-
-  .meta-value {
-    font-size: 15px;
-    font-weight: 700;
-    color: #1e293b;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-  }
-
-  .meta-value.on-time {
-    color: #10b981;
-  }
-
-  .meta-value.delayed {
-    color: #ef4444;
-  }
-
-  .meta-value.warning {
-    color: #f59e0b;
-  }
-
-  /* Action Buttons */
-  .ticket-footer {
-    display: flex;
-    gap: 10px;
-    margin-top: 16px;
-  }
-
-  .action-btn {
-    flex: 1;
-    padding: 11px 14px;
-    border-radius: 10px;
-    border: none;
-    font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .action-btn.primary {
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-  }
-
-  .action-btn.primary:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
-  }
-
-  .action-btn.primary:active {
-    transform: translateY(-1px);
-  }
-
-  .action-btn.secondary {
-    background: #fee2e2;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
-  }
-
-  .action-btn.secondary:hover {
-    background: #fecaca;
-    transform: translateY(-2px);
-  }
-
-  .action-btn.secondary:active {
-    transform: translateY(0);
-  }
-
-  /* Empty State */
-  .empty-state {
-    text-align: center;
-    padding: 50px 20px;
-    color: #64748b;
-  }
-
-  .empty-state-icon {
-    font-size: 64px;
-    margin-bottom: 16px;
-    animation: float 3s ease-in-out infinite;
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
-
-  .empty-state-text {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 6px;
-    color: #1e293b;
-  }
-
-  .empty-state-subtext {
-    font-size: 13px;
-    color: #94a3b8;
-  }
-
-  /* Dark mode support */
-  body.night-mode .side-window {
-    background: rgba(20, 20, 20, 0.95);
-    border-right-color: rgba(255, 255, 255, 0.1);
-  }
-
-  body.night-mode .ticket-container {
-    background: #1e293b;
-    border-color: rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  }
-
-  body.night-mode .route-info h4 {
-    color: #f1f5f9;
-  }
-
-  body.night-mode .step span {
-    color: #cbd5e1;
-  }
-
-  body.night-mode .meta-item {
-    background: #334155;
-    border-color: #475569;
-  }
+  /* ================= SIDE DASHBOARD WINDOW - REMOVED (NOW USING NATIVE TABS) ================= */
 
   body.night-mode .meta-item:hover {
     background: #3d4553;
@@ -1900,6 +1521,9 @@
 
   <!-- Side Dashboard Window -->
   <div id="map" role="main" aria-label="Interactive transit map"></div>
+
+  <!-- Floating Map Menu Button -->
+  <button id="mapToggleBtn" aria-label="Open Menu">☰</button>
 
   <div id="heatmap-overlay" class="hud-panel controls">
     <div class="heatmap-legend">
@@ -5139,37 +4763,30 @@
     setTimeout(() => modal.classList.add('active'), 10); 
   };
 
-  /* ================= SIDE DASHBOARD WINDOW ================= */
+  /* ================= DASHBOARD OBJECT (NATIVE TABS) ================= */
   window.Dashboard = {
     tickets: [],
     
     // Initialize the dashboard
     init() {
-      const sideWindow = document.getElementById('side-window');
-      const closeBtn = document.getElementById('close-side');
-      
-      if (!closeBtn) return;
-      
-      closeBtn.addEventListener('click', () => {
-        this.close();
-      });
+      // No initialization needed for native tabs
     },
     
-    // Open the dashboard
+    // Open the dashboard (switch to Directory tab)
     open() { 
-      document.getElementById('side-window').classList.add('active');
-      this.refreshDirectory(); // Load the live buses when opened
+      switchTab('tickets');
+      this.refreshDirectory();
     },
     
-    // Close the dashboard
+    // Close the dashboard (no-op for native tabs)
     close() { 
-      document.getElementById('side-window').classList.remove('active');
+      // Native tabs don't need closing
     },
     
-    // Toggle the dashboard
+    // Toggle the dashboard (switch to Directory tab)
     toggle() { 
-      document.getElementById('side-window').classList.toggle('active');
-      if(document.getElementById('side-window').classList.contains('active')) this.refreshDirectory();
+      switchTab('tickets');
+      this.refreshDirectory();
     },
     
     // This function builds the RedBus-style cards based on live map data
@@ -5301,38 +4918,54 @@
     window.Dashboard.init();
   });
 
+  /* Sidebar Toggle Logic */
   (function(){
     const panel = document.getElementById('side-panel');
-    const panelToggleBtn = document.getElementById('panelToggleBtn');
     const innerToggleBtn = document.getElementById('innerToggleBtn');
+    const mapToggleBtn = document.getElementById('mapToggleBtn');
     
     if(!panel) return;
     
     function setOpen(open){
       if(open){ 
         panel.classList.add('open');
-        if(panelToggleBtn) { panelToggleBtn.setAttribute('aria-expanded','true'); panelToggleBtn.textContent = '◀'; }
+        // Hide the map toggle button when panel is open
+        if(mapToggleBtn) mapToggleBtn.style.display = 'none'; 
       }
       else { 
         panel.classList.remove('open');
-        if(panelToggleBtn) { panelToggleBtn.setAttribute('aria-expanded','false'); panelToggleBtn.textContent = '☰'; }
+        // Show the map toggle button when panel is closed
+        if(mapToggleBtn) mapToggleBtn.style.display = 'block'; 
       }
     }
     
-    // Handle panelToggleBtn (for mobile/narrow screens)
-    if(panelToggleBtn) {
-      panelToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(!panel.classList.contains('open')); });
-      panelToggleBtn.addEventListener('click', () => { setTimeout(() => window.dispatchEvent(new Event('resize')), 260); });
-    }
-    
-    // Handle innerToggleBtn (in the left sidebar header)
+    // Handle innerToggleBtn (in the left sidebar header - closes the panel)
     if(innerToggleBtn) {
-      innerToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(!panel.classList.contains('open')); });
-      innerToggleBtn.addEventListener('click', () => { setTimeout(() => window.dispatchEvent(new Event('resize')), 260); });
+      innerToggleBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        setOpen(false); 
+      });
     }
     
-    // initialize open by default for desktop
-    setOpen(true);
+    // Handle mapToggleBtn (floating button on the map - opens the panel)
+    if(mapToggleBtn) {
+      mapToggleBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        setOpen(true); 
+      });
+    }
+    
+    // Force Leaflet to recalculate when the panel finishes animating
+    panel.addEventListener('transitionend', () => {
+        window.dispatchEvent(new Event('resize'));
+    });
+    
+    // Initialize open by default for desktop, hidden for mobile
+    if (window.innerWidth > 768) {
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
   })();
 
   /* Occupancy Legend Toggle */
