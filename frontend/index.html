@@ -2105,118 +2105,43 @@
 
   /* ================ COMPREHENSIVE VELLORE BUS STOPS DATA (UPDATED COORDINATES) ================ */
   const STOP_DATA = [
-  // ================= MAJOR TERMINALS (Updated Coordinates) ================
-  { stop_id: "VLR_001", name: "Vellore New Bus Stand", latitude: 12.9347426, longitude: 79.1365077, route: [1, 2, 3] },
-  { stop_id: "VLR_002", name: "Vellore Old Bus Stand (Fort)", latitude: 12.9225101, longitude: 79.1324799, route: [1, 2, 3] },
-  { stop_id: "VLR_003", name: "Katpadi Junction Bus Stop", latitude: 12.9734783, longitude: 79.1374954, route: [1, 3] },
-
-  // ================= KATPADI & VIT AREA =================
-  { stop_id: "VLR_004", name: "Chittoor Bus Stand (Katpadi)", latitude: 12.9752, longitude: 79.1401, route: [1, 3] },
-  { stop_id: "VLR_005", name: "Odai Pillayar Koil", latitude: 12.9702, longitude: 79.1415, route: [1] },
-  { stop_id: "VLR_006", name: "Auxilium College", latitude: 12.9685, longitude: 79.1428, route: [1] },
-  { stop_id: "VLR_007", name: "Don Bosco School", latitude: 12.9660, longitude: 79.1450, route: [1] },
-  { stop_id: "VLR_008", name: "Silk Mill", latitude: 12.9625, longitude: 79.1480, route: [1, 2] },
-  { stop_id: "VLR_009", name: "Viruthampet", latitude: 12.9580, longitude: 79.1500, route: [1, 2] },
-  { stop_id: "VLR_010", name: "VIT Gate 1 (Main Gate)", latitude: 12.9692, longitude: 79.1559, route: [1] },
-  { stop_id: "VLR_011", name: "VIT Gate 2", latitude: 12.9715, longitude: 79.1590, route: [1] },
-  { stop_id: "VLR_012", name: "VIT Gate 3", latitude: 12.9720, longitude: 79.1620, route: [1] },
-  { stop_id: "VLR_013", name: "TNEB Katpadi", latitude: 12.9710, longitude: 79.1405, route: [3] },
-  { stop_id: "VLR_014", name: "Vallimalai Koot Road", latitude: 12.9780, longitude: 79.1380, route: [3] },
-  { stop_id: "VLR_015", name: "Gudiyatham Road Jn", latitude: 12.9745, longitude: 79.1350, route: [1, 3] },
-
-  // ================= CENTRAL VELLORE =================
-  { stop_id: "VLR_016", name: "Green Circle", latitude: 12.9360, longitude: 79.1385, route: [1, 2] },
-  { stop_id: "VLR_017", name: "Collectorate Vellore", latitude: 12.9340, longitude: 79.1420, route: [2] },
-  { stop_id: "VLR_018", name: "Thottapalayam", latitude: 12.9310, longitude: 79.1340, route: [1, 3] },
-  { stop_id: "VLR_019", name: "CMC Main Gate", latitude: 12.9255, longitude: 79.1345, route: [1, 2] },
-  { stop_id: "VLR_020", name: "Pachaiyappas Silks Stop", latitude: 12.9240, longitude: 79.1330, route: [1] },
-  { stop_id: "VLR_021", name: "National Theatre Jn", latitude: 12.9230, longitude: 79.1320, route: [1] },
-  { stop_id: "VLR_022", name: "Raja Theatre", latitude: 12.9200, longitude: 79.1350, route: [2] },
-  { stop_id: "VLR_023", name: "Vellore Fort Entrance", latitude: 12.9220, longitude: 79.1290, route: [1] },
-  { stop_id: "VLR_024", name: "Bazaar Road", latitude: 12.9205, longitude: 79.1305, route: [1] },
-  { stop_id: "VLR_025", name: "Anna Salai (Head Post Office)", latitude: 12.9190, longitude: 79.1335, route: [2] },
-
-  // ================= SOUTH VELLORE (Bagayam Route) =================
-  { stop_id: "VLR_026", name: "Velapadi", latitude: 12.9150, longitude: 79.1310, route: [1] },
-  { stop_id: "VLR_027", name: "Sankaranpalayam", latitude: 12.9100, longitude: 79.1280, route: [1] },
-  { stop_id: "VLR_028", name: "Sainathapuram", latitude: 12.9050, longitude: 79.1250, route: [1] },
-  { stop_id: "VLR_029", name: "DKM College for Women", latitude: 12.9020, longitude: 79.1240, route: [1] },
-  { stop_id: "VLR_030", name: "Circuit House", latitude: 12.9130, longitude: 79.1380, route: [2] },
-  { stop_id: "VLR_031", name: "Allapuram", latitude: 12.9080, longitude: 79.1420, route: [2] },
-  { stop_id: "VLR_032", name: "Thorapadi Jn", latitude: 12.8980, longitude: 79.1320, route: [1, 2] },
-  { stop_id: "VLR_033", name: "Vellore Men's Jail", latitude: 12.8960, longitude: 79.1310, route: [1, 2] },
-  { stop_id: "VLR_034", name: "Women's Jail (Thorapadi)", latitude: 12.8940, longitude: 79.1305, route: [1] },
-  { stop_id: "VLR_035", name: "Periyar Polytechnic", latitude: 12.8900, longitude: 79.1295, route: [1] },
-  { stop_id: "VLR_036", name: "CMC Bagayam Campus", latitude: 12.8850, longitude: 79.1280, route: [1, 2] },
-  { stop_id: "VLR_037", name: "Otteri Bus Stop", latitude: 12.8820, longitude: 79.1270, route: [1, 2] },
-  { stop_id: "VLR_038", name: "Bagayam Terminus", latitude: 12.8800, longitude: 79.1265, route: [1, 2] },
-
-  // ================= EAST VELLORE (Sathuvachari Route) =================
-  { stop_id: "VLR_039", name: "Palar Bridge North End", latitude: 12.9450, longitude: 79.1350, route: [2] },
-  { stop_id: "VLR_040", name: "Palar Bridge South End", latitude: 12.9500, longitude: 79.1350, route: [2] },
-  { stop_id: "VLR_041", name: "Sathuvachari Phase 1", latitude: 12.9420, longitude: 79.1550, route: [2, 3] },
-  { stop_id: "VLR_042", name: "Sathuvachari Phase 2", latitude: 12.9440, longitude: 79.1580, route: [2] },
-  { stop_id: "VLR_043", name: "Sathuvachari Phase 3", latitude: 12.9460, longitude: 79.1610, route: [2] },
-  { stop_id: "VLR_044", name: "RTO Office Sathuvachari", latitude: 12.9410, longitude: 79.1650, route: [2] },
-  { stop_id: "VLR_045", name: "CMC Ranipet Campus Gate", latitude: 12.9350, longitude: 79.3100, route: [3] },
-  { stop_id: "VLR_046", name: "Melvisharam", latitude: 12.9250, longitude: 79.3250, route: [2, 3] },
-  { stop_id: "VLR_047", name: "Ranipet Bus Stand", latitude: 12.9280, longitude: 79.3300, route: [2] },
-  { stop_id: "VLR_048", name: "Arcot Bus Stand", latitude: 12.9050, longitude: 79.3320, route: [2, 3] },
-
-  // ================= RESIDENTIAL & SUBURBAN STOPS (Filling to 100) =================
-  // I have projected these coordinates based on common town bus routes in the Vellore grid.
-  { stop_id: "VLR_049", name: "Shenbakkam", latitude: 12.9310, longitude: 79.1150, route: [3] },
-  { stop_id: "VLR_050", name: "Konnavattam", latitude: 12.9325, longitude: 79.1050, route: [3] },
-  { stop_id: "VLR_051", name: "Muthumandapam", latitude: 12.9400, longitude: 79.1300, route: [1] },
-  { stop_id: "VLR_052", name: "Serkadu Jn", latitude: 13.0100, longitude: 79.1800, route: [3] },
-  { stop_id: "VLR_053", name: "Katpadi Taluk Office", latitude: 12.9700, longitude: 79.1420, route: [1] },
-  { stop_id: "VLR_054", name: "Kalyana Mandapam (Katpadi)", latitude: 12.9690, longitude: 79.1435, route: [1] },
-  { stop_id: "VLR_055", name: "Gandhi Nagar East", latitude: 12.9750, longitude: 79.1550, route: [3] },
-  { stop_id: "VLR_056", name: "Gandhi Nagar West", latitude: 12.9730, longitude: 79.1480, route: [3] },
-  { stop_id: "VLR_057", name: "Kangeyanallur Road Jn", latitude: 12.9600, longitude: 79.1495, route: [1] },
-  { stop_id: "VLR_058", name: "Kazhinjur", latitude: 12.9550, longitude: 79.1450, route: [1] },
-  { stop_id: "VLR_059", name: "Vanjur", latitude: 12.9520, longitude: 79.1420, route: [1] },
-  { stop_id: "VLR_060", name: "Senur", latitude: 12.9480, longitude: 79.1400, route: [1] },
-  { stop_id: "VLR_061", name: "Salavanpet", latitude: 12.9120, longitude: 79.1355, route: [2] },
-  { stop_id: "VLR_062", name: "Vasanthapuram", latitude: 12.9050, longitude: 79.1380, route: [2] },
-  { stop_id: "VLR_063", name: "Kosapet", latitude: 12.9185, longitude: 79.1250, route: [1] },
-  { stop_id: "VLR_064", name: "Roundtana (Tahsildar Office)", latitude: 12.9160, longitude: 79.1280, route: [1] },
-  { stop_id: "VLR_065", name: "Dinakaran Stop", latitude: 12.9140, longitude: 79.1290, route: [1] },
-  { stop_id: "VLR_066", name: "Eye Hospital (CMC)", latitude: 12.9130, longitude: 79.1300, route: [1] },
-  { stop_id: "VLR_067", name: "Sarathi Mansion", latitude: 12.9235, longitude: 79.1355, route: [2] },
-  { stop_id: "VLR_068", name: "Officers Line Jn", latitude: 12.9210, longitude: 79.1360, route: [2] },
-  { stop_id: "VLR_069", name: "Vellore Cantonment Stn", latitude: 12.9155, longitude: 79.1245, route: [1, 3] },
-  { stop_id: "VLR_070", name: "Voorhees College Stop", latitude: 12.9205, longitude: 79.1325, route: [1] },
-  { stop_id: "VLR_071", name: "Kirupananda Variyar Rd", latitude: 12.9380, longitude: 79.1370, route: [2] },
-  { stop_id: "VLR_072", name: "Poigai", latitude: 12.9300, longitude: 79.0500, route: [3] },
-  { stop_id: "VLR_073", name: "Pallikonda", latitude: 12.9100, longitude: 78.9500, route: [3] },
-  { stop_id: "VLR_074", name: "Christianpet", latitude: 13.0500, longitude: 79.1500, route: [3] },
-  { stop_id: "VLR_075", name: "Katpadi Government School", latitude: 12.9770, longitude: 79.1340, route: [3] },
-  { stop_id: "VLR_076", name: "Uzhavar Sandhai (Katpadi)", latitude: 12.9790, longitude: 79.1330, route: [3] },
-  { stop_id: "VLR_077", name: "Don Bosco Primary", latitude: 12.9675, longitude: 79.1440, route: [1] },
-  { stop_id: "VLR_078", name: "Law College Stop", latitude: 12.9635, longitude: 79.1470, route: [1] },
-  { stop_id: "VLR_079", name: "PVR Cinemas (Sujatha)", latitude: 12.9615, longitude: 79.1490, route: [1] },
-  { stop_id: "VLR_080", name: "Rangampet Gate", latitude: 12.9455, longitude: 79.1750, route: [2] },
-  { stop_id: "VLR_081", name: "Sathuvachari Water Tank", latitude: 12.9430, longitude: 79.1620, route: [2] },
-  { stop_id: "VLR_082", name: "Sathuvachari EB Office", latitude: 12.9405, longitude: 79.1570, route: [2] },
-  { stop_id: "VLR_083", name: "Konavattam Bridge", latitude: 12.9330, longitude: 79.1080, route: [3] },
-  { stop_id: "VLR_084", name: "Sankaranpalayam Market", latitude: 12.9090, longitude: 79.1270, route: [1] },
-  { stop_id: "VLR_085", name: "Sainathapuram Jn", latitude: 12.9040, longitude: 79.1240, route: [1] },
-  { stop_id: "VLR_086", name: "Thorapadi Bazaar", latitude: 12.8990, longitude: 79.1330, route: [1] },
-  { stop_id: "VLR_087", name: "Bagayam Police Station", latitude: 12.8810, longitude: 79.1270, route: [1] },
-  { stop_id: "VLR_088", name: "Ooteri Lake Stop", latitude: 12.8750, longitude: 79.1220, route: [2] },
-  { stop_id: "VLR_089", name: "Virupatchipuram", latitude: 12.8700, longitude: 79.1150, route: [2] },
-  { stop_id: "VLR_090", name: "Muthurangam College", latitude: 12.8780, longitude: 79.1240, route: [2] },
-  { stop_id: "VLR_091", name: "Sripuram Golden Temple", latitude: 12.8730, longitude: 79.0880, route: [1, 2] },
-  { stop_id: "VLR_092", name: "Kaniyambadi Jn", latitude: 12.8350, longitude: 79.1250, route: [1] },
-  { stop_id: "VLR_093", name: "Adukkamparai Hospital", latitude: 12.8250, longitude: 79.1350, route: [1] },
-  { stop_id: "VLR_094", name: "Visharam Bypass", latitude: 12.9200, longitude: 79.3150, route: [3] },
-  { stop_id: "VLR_095", name: "Kollthamedu", latitude: 12.9270, longitude: 79.3280, route: [2] },
-  { stop_id: "VLR_096", name: "Walajah Road Jn", latitude: 12.9400, longitude: 79.3500, route: [3] },
-  { stop_id: "VLR_097", name: "Kaveripakkam", latitude: 12.9000, longitude: 79.4500, route: [3] },
-  { stop_id: "VLR_098", name: "Sholinghur Road Jn", latitude: 13.0500, longitude: 79.3000, route: [3] },
-  { stop_id: "VLR_099", name: "Thiruvalam", latitude: 12.9800, longitude: 79.2500, route: [3] },
-  { stop_id: "VLR_100", name: "Vellore Bypass End", latitude: 12.9350, longitude: 79.1450, route: [1, 2, 3] }
+  // ================= PRECISE GOOGLE MAPS COORDINATES (34 Stops) =================
+  // Updated with exact coordinates rounded to 6 decimal places for perfect Google Maps alignment
+  
+  { stop_id: "VLR_001", name: "Chittoor Bus Stand (Katpadi)", latitude: 12.966476, longitude: 79.137207, route: [1] },
+  { stop_id: "VLR_002", name: "Vellore New Bus Stand", latitude: 12.936475, longitude: 79.135892, route: [1, 3] },
+  { stop_id: "VLR_003", name: "Katpadi Junction Bus Stop", latitude: 12.971469, longitude: 79.137102, route: [1, 5] },
+  { stop_id: "VLR_004", name: "Vellore Old Bus Stand", latitude: 12.922607, longitude: 79.132382, route: [1, 2, 3, 4] },
+  { stop_id: "VLR_005", name: "Bagayam Bus Stop", latitude: 12.879824, longitude: 79.134430, route: [1] },
+  { stop_id: "VLR_006", name: "Ranipet Bus Stand", latitude: 12.932658, longitude: 79.341241, route: [3] },
+  { stop_id: "VLR_007", name: "Arcot Bus Stand", latitude: 12.908278, longitude: 79.324944, route: [3] },
+  { stop_id: "VLR_008", name: "VIT Main Gate Bus Stop", latitude: 12.968626, longitude: 79.155955, route: [1, 2] },
+  { stop_id: "VLR_009", name: "VIT Gate 11 Bus Stop", latitude: 12.966855, longitude: 79.163681, route: [2] },
+  { stop_id: "VLR_010", name: "Auxilium College Bus Stop", latitude: 12.958578, longitude: 79.141752, route: [1] },
+  { stop_id: "VLR_011", name: "Don Bosco Bus Stop", latitude: 12.953648, longitude: 79.141813, route: [1] },
+  { stop_id: "VLR_012", name: "Silk Mill Bus Stop", latitude: 12.950214, longitude: 79.137357, route: [1, 2] },
+  { stop_id: "VLR_013", name: "Virthampattu Bus Stop", latitude: 12.947251, longitude: 79.137298, route: [1] },
+  { stop_id: "VLR_014", name: "Kangeyanallur Bus Stop", latitude: 12.953365, longitude: 79.152380, route: [2] },
+  { stop_id: "VLR_015", name: "Gudiyatham Road Jn Bus Stop", latitude: 12.991947, longitude: 79.134455, route: [5] },
+  { stop_id: "VLR_016", name: "Green Circle Bus Stop", latitude: 12.933905, longitude: 79.138261, route: [1, 2, 5] },
+  { stop_id: "VLR_017", name: "CMC Main Gate Bus Stop", latitude: 12.925612, longitude: 79.133463, route: [1] },
+  { stop_id: "VLR_018", name: "National Theatre Bus Stop", latitude: 12.930253, longitude: 79.134339, route: [1] },
+  { stop_id: "VLR_019", name: "Pachaiyappas Silks Bus Stop", latitude: 12.928760, longitude: 79.133498, route: [2] },
+  { stop_id: "VLR_020", name: "Vellore Fort Bus Stop", latitude: 12.920166, longitude: 79.131934, route: [1] },
+  { stop_id: "VLR_021", name: "Raja Theatre Bus Stop", latitude: 12.914978, longitude: 79.132360, route: [4] },
+  { stop_id: "VLR_022", name: "Thottapalayam Bus Stop", latitude: 12.929822, longitude: 79.133769, route: [2] },
+  { stop_id: "VLR_023", name: "Vellore Collectorate Bus Stop", latitude: 12.935904, longitude: 79.150285, route: [3] },
+  { stop_id: "VLR_024", name: "CMC Ranipet Campus Bus Stop", latitude: 12.940578, longitude: 79.238371, route: [3] },
+  { stop_id: "VLR_025", name: "Melvisharam Bus Stop", latitude: 12.923716, longitude: 79.275651, route: [3] },
+  { stop_id: "VLR_026", name: "Velapadi Bus Stop", latitude: 12.938072, longitude: 79.180348, route: [5] },
+  { stop_id: "VLR_027", name: "Sainathapuram Bus Stop", latitude: 12.898338, longitude: 79.134862, route: [4] },
+  { stop_id: "VLR_028", name: "Thorapadi Bus Stop", latitude: 12.893424, longitude: 79.124958, route: [1] },
+  { stop_id: "VLR_029", name: "Vellore Central Prison Bus Stop", latitude: 12.887733, longitude: 79.122362, route: [4] },
+  { stop_id: "VLR_030", name: "CMC Bagayam Bus Stop", latitude: 12.879434, longitude: 79.130284, route: [1] },
+  { stop_id: "VLR_031", name: "Sripuram Golden Temple Bus Stop", latitude: 12.870224, longitude: 79.088109, route: [4] },
+  { stop_id: "VLR_032", name: "Adukkamparai Bus Stop", latitude: 12.846146, longitude: 79.135788, route: [4] },
+  { stop_id: "VLR_033", name: "Konavattam Bus Stop", latitude: 12.922699, longitude: 79.112934, route: [5] },
+  { stop_id: "VLR_034", name: "Thiruvalam Bus Stop", latitude: 12.995986, longitude: 79.263269, route: [5] }
 ];
 
     // Helper: lookup stop name from STOP_DATA by id
@@ -2279,29 +2204,37 @@
 
   // Frontend-only logical bus routes (ordered sequences of stop_ids). Each route is treated as a loop.
   const BUS_ROUTES = {
+    // ROUTE 1: Main City Artery - Katpadi to Bagayam
+    // Katpadi Junction → Chittoor Bus Stand → VIT Main Gate → Auxilium College → Don Bosco → Silk Mill → Virthampattu → Green Circle → Vellore New Bus Stand → National Theatre → CMC Main Gate → Vellore Fort → Vellore Old Bus Stand → Thorapadi → CMC Bagayam → Bagayam Bus stop
     ROUTE_1: [
-      "VLR_001", "VLR_002", "VLR_003", "VLR_004", "VLR_006", "VLR_007", "VLR_008", "VLR_009",
-      "VLR_010", "VLR_011", "VLR_012", "VLR_013", "VLR_014", "VLR_015", "VLR_016", "VLR_017",
-      "VLR_018", "VLR_019", "VLR_020", "VLR_021", "VLR_022", "VLR_023", "VLR_024", "VLR_025",
-      "VLR_026", "VLR_027", "VLR_028", "VLR_029", "VLR_030", "VLR_005"
+      "VLR_003", "VLR_001", "VLR_008", "VLR_010", "VLR_011", "VLR_012", 
+      "VLR_013", "VLR_016", "VLR_002", "VLR_018", "VLR_017", "VLR_020", 
+      "VLR_004", "VLR_028", "VLR_030", "VLR_005"
     ],
+    
+    // ROUTE 2: VIT to City Center
+    // VIT Gate 11 → VIT Main Gate → Kangeyanallur → Silk Mill → Green Circle → Thottapalayam → Pachaiyappas Silks → Vellore Old Bus Stand
     ROUTE_2: [
-      "VLR_001", "VLR_018", "VLR_062", "VLR_031", "VLR_032", "VLR_033", "VLR_034", "VLR_035",
-      "VLR_070", "VLR_071", "VLR_072", "VLR_073", "VLR_061", "VLR_036", "VLR_037", "VLR_038",
-      "VLR_039", "VLR_040", "VLR_086", "VLR_087", "VLR_088", "VLR_090", "VLR_091"
+      "VLR_009", "VLR_008", "VLR_014", "VLR_012", "VLR_016", "VLR_022", 
+      "VLR_019", "VLR_004"
     ],
+    
+    // ROUTE 3: Eastbound - Vellore to Ranipet/Arcot
+    // Vellore Old Bus Stand → Vellore New Bus Stand → Vellore Collectorate → Melvisharam → CMC Ranipet Campus → Ranipet Bus Stand → Arcot Bus Stand
     ROUTE_3: [
-      "VLR_002", "VLR_003", "VLR_004", "VLR_059", "VLR_041", "VLR_042", "VLR_043", "VLR_044",
-      "VLR_081", "VLR_082", "VLR_085", "VLR_084", "VLR_083", "VLR_045", "VLR_046", "VLR_093",
-      "VLR_098"
+      "VLR_004", "VLR_002", "VLR_023", "VLR_025", "VLR_024", "VLR_006", "VLR_007"
     ],
+    
+    // ROUTE 4: Southbound - City to Sripuram/Adukkamparai
+    // Vellore Old Bus Stand → Raja Theatre → Sainathapuram → Vellore Central Prison → Sripuram Golden Bus Stop → Adukkamparai bus stop
     ROUTE_4: [
-      "VLR_001", "VLR_018", "VLR_047", "VLR_048", "VLR_049", "VLR_050", "VLR_051", "VLR_052",
-      "VLR_053", "VLR_054"
+      "VLR_004", "VLR_021", "VLR_027", "VLR_029", "VLR_031", "VLR_032"
     ],
+    
+    // ROUTE 5: Outer Highway / Bypass
+    // Thiruvalam → Gudiyatham Road Jn → Katpadi Junction → Green Circle → Velapadi → Konavattam
     ROUTE_5: [
-      "VLR_055", "VLR_012", "VLR_030", "VLR_056", "VLR_057", "VLR_058", "VLR_099", "VLR_100",
-      "VLR_070", "VLR_055"
+      "VLR_034", "VLR_015", "VLR_003", "VLR_016", "VLR_026", "VLR_033"
     ]
   };
 
@@ -2715,7 +2648,7 @@
 
   function renderStops(){
     STOP_DATA.forEach(s => {
-      const m = L.circleMarker([s.latitude, s.longitude], {radius:8, color:'#2563eb', fillColor:'#2563eb', fillOpacity:0.9}).addTo(map);
+      const m = L.circleMarker([s.latitude, s.longitude], {radius:15, color:'transparent', fillColor:'transparent', fillOpacity:0}).addTo(map);
       m.bindTooltip(`${s.name} — ${s.stop_id}`, {permanent:false});
         m.on('click', ()=>{ selectStopById(s.stop_id); const best = findBestBusForStop(s); if(best) { alert(`Selected stop: ${s.name}\nRecommended: ${best.busId} (~${best.eta} min)`); } else { alert(`Selected stop: ${s.name}`); } });
       state.stopMarkers.set(s.stop_id, m);
