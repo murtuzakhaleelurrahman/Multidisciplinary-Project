@@ -503,18 +503,18 @@
   /* ================= SIDE PANEL LAYOUT (CLICK-TO-TOGGLE) ================= */
   /* Panel host — keep small collapsed footprint; inner surface becomes fixed-width dashboard */
   /* Host is full width and non-clipping; inner surface will animate in/out */
-  #side-panel{position:fixed;right:0;top:0;bottom:0;width:340px;z-index:12000;display:flex;align-items:flex-start;pointer-events:none}
+  #side-panel{position:fixed;left:0;top:0;bottom:0;width:340px;z-index:12000;display:flex;align-items:flex-start;pointer-events:none}
   #side-panel:focus{outline:none}
 
   /* The inner surface is the single continuous dashboard. It slides over the map. */
   #side-panel .side-panel-inner{
     width:340px; max-width:340px; height:100%;
     transition:transform 220ms ease;
-    transform: translateX(340px); /* hidden by default */
-    background:var(--panel-bg-solid); border-left:1px solid rgba(0,0,0,0.04);
+    transform: translateX(-340px); /* hidden by default */
+    background:var(--panel-bg-solid); border-right:1px solid rgba(0,0,0,0.04);
     overflow-y:auto; overflow-x:hidden; box-sizing:border-box; pointer-events:auto;
     /* Soft panel edge shadow - subtle and elegant */
-    box-shadow: -2px 0px 12px rgba(0,0,0,0.08);
+    box-shadow: 2px 0px 12px rgba(0,0,0,0.08);
   }
 
   /* When host has .open, slide the inner surface into view */
@@ -769,13 +769,45 @@
   /* small responsive tweak */
   @media (max-width:700px){#side-panel{display:none}#panelToggleBtn{display:none}}
 
-  /* Toggle Button (always visible) */
+  /* Toggle Button (hidden when using left sidebar) */
   #panelToggleBtn{
-    position:fixed; right:12px; top:50%; transform:translateY(-50%);
-    z-index:13000; width:44px; height:44px; border-radius:8px; 
-    background:var(--panel-bg-solid); color:var(--text-color); border:1px solid rgba(0,0,0,0.08);
-    box-shadow:0 6px 18px rgba(0,0,0,0.15); display:flex; align-items:center; justify-content:center;
-    font-size:18px; cursor:pointer; pointer-events:auto;
+    display: none;
+  }
+
+  /* ================= YOUTUBE-STYLE MENU CSS ================= */
+  .yt-menu {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    gap: 4px;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    background: var(--panel-bg-solid);
+  }
+  .yt-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-color);
+    font-size: 15px;
+    font-weight: 500;
+    transition: background 0.2s ease;
+  }
+  .yt-menu-item:hover {
+    background: rgba(128,128,128,0.1);
+  }
+  .yt-menu-item.active {
+    background: rgba(128,128,128,0.15);
+    font-weight: 600;
+  }
+  .yt-icon {
+    font-size: 20px;
+    margin-right: 16px;
+    width: 24px;
+    text-align: center;
   }
   @keyframes pulse-red { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
@@ -1616,15 +1648,23 @@
   <!-- Right-side expandable side panel (consolidated controls) -->
   <aside id="side-panel" tabindex="0" aria-label="Controls Panel">
     <div class="side-panel-inner">
-      <div class="panel-header">
-        <strong>Smart Transit</strong>
-        <span style="font-size:12px;opacity:0.6">Control Center</span>
+      <div class="panel-header" style="flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px;">
+        <button id="innerToggleBtn" style="background: transparent; border: none; font-size: 20px; cursor: pointer; color: var(--text-color); padding: 0;">☰</button>
+        <strong style="font-size: 18px;">Smart Transit</strong>
       </div>
-      <div style="display: flex; border-bottom: 1px solid rgba(0,0,0,0.1); background: var(--panel-bg-solid);">
-        <button id="tab-fleet" class="tab-btn active" onclick="switchTab('fleet')">🚌 Fleet</button>
-        <button id="tab-planner" class="tab-btn" onclick="switchTab('planner')">🧭 Planner</button>
-        <button id="tab-tickets" class="tab-btn" onclick="switchTab('tickets')">📋 Directory</button>
-        <button id="tab-analytics" class="tab-btn admin-feature" onclick="switchTab('analytics')" style="display:none;">📈 Analytics</button>
+      <div class="yt-menu">
+        <button id="tab-fleet" class="yt-menu-item active" onclick="switchTab('fleet')">
+          <span class="yt-icon">🚌</span><span class="yt-label">Fleet</span>
+        </button>
+        <button id="tab-planner" class="yt-menu-item" onclick="switchTab('planner')">
+          <span class="yt-icon">🧭</span><span class="yt-label">Planner</span>
+        </button>
+        <button id="tab-tickets" class="yt-menu-item" onclick="switchTab('tickets')">
+          <span class="yt-icon">📋</span><span class="yt-label">Directory</span>
+        </button>
+        <button id="tab-analytics" class="yt-menu-item admin-feature" onclick="switchTab('analytics')" style="display:none;">
+          <span class="yt-icon">📈</span><span class="yt-label">Analytics</span>
+        </button>
       </div>
 
       <div id="content-fleet" class="tab-content active">
@@ -1654,20 +1694,25 @@
         <!-- 2) Stop Summary Card -->
         <section class="panel-section" id="panel-stop-summary">
           <div id="stop-summary-card" class="hud-panel" style="display: none; min-width: unset;">
-            <div style="font-weight:700;margin-bottom:6px">📍 Stop Summary</div>
-            <div style="font-size:13px;line-height:1.4">
-              <div><b id="stop-name">—</b></div>
-              <div>Best Bus: <span id="stop-best-bus">—</span></div>
-              <div>Arrival: <span id="stop-best-eta">--</span></div>
-              <div>Confidence: <span id="stop-confidence">—</span></div>
+            <div id="stop-summary-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+              <div style="font-weight:700;">📍 Stop Summary</div>
+              <span class="stop-summary-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+            </div>
+            
+            <div id="stop-summary-body" style="display: block; margin-top: 10px;">
+              <div style="font-size:13px;line-height:1.4">
+                <div><b id="stop-name">—</b></div>
+                <div>Best Bus: <span id="stop-best-bus">—</span></div>
+                <div>Arrival: <span id="stop-best-eta">--</span></div>
+                <div>Confidence: <span id="stop-confidence">—</span></div>
 
-              <!-- User-configurable ETA alert lead time -->
-              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd;">
-                <label style="font-size: 11px; font-weight: 600;">Alert me when</label>
-                <div style="display: flex; gap: 5px; margin-top: 4px;">
-                  <input type="number" id="alertThreshold" value="5" min="1" max="30"
-                         style="width: 50px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
-                  <span style="font-size: 11px; align-self: center;">mins away</span>
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd;">
+                  <label style="font-size: 11px; font-weight: 600;">Alert me when</label>
+                  <div style="display: flex; gap: 5px; margin-top: 4px;">
+                    <input type="number" id="alertThreshold" value="5" min="1" max="30"
+                           style="width: 50px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
+                    <span style="font-size: 11px; align-self: center;">mins away</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1677,9 +1722,14 @@
         <!-- 3) Monitoring Status HUD -->
         <section class="panel-section" id="panel-monitor">
           <div id="monitor-hud" class="hud-panel" style="display: block; min-width: unset;">
-            <div style="font-weight:700;margin-bottom:6px">🔔 Monitoring Status</div>
-            <div id="monitor-body">
-              <!-- Content injected by updateMonitorHUD() -->
+            <div id="monitor-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+              <div style="font-weight:700;">🔔 Monitoring Status</div>
+              <span class="monitor-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+            </div>
+            
+            <div id="monitor-body-wrap" style="display: block; margin-top: 10px;">
+              <div id="monitor-body">
+              </div>
             </div>
           </div>
         </section>
@@ -1776,7 +1826,14 @@
         </section>
       </div>
 
-      <!-- Tickets content tab removed - functionality replaced by Live Fleet Directory in side-window -->
+      <div id="content-tickets" class="tab-content">
+        <section class="panel-section" id="panel-directory">
+          <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Active Routes</div>
+          <div id="tickets-container" style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="placeholder-text">Click to load active fleet...</div>
+          </div>
+        </section>
+      </div>
 
       <div id="content-analytics" class="tab-content">
         <section class="panel-section" id="panel-charts">
@@ -1842,21 +1899,6 @@
   </div>
 
   <!-- Side Dashboard Window -->
-  <div id="side-window" class="side-window">
-    <div class="side-header">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3>🚌 Live Fleet Directory</h3>
-        <button id="close-side" class="close-btn">&times;</button>
-      </div>
-    </div>
-    
-    <div class="side-content">
-      <div id="tickets-container">
-        <!-- Tickets will be dynamically injected here -->
-      </div>
-    </div>
-  </div>
-
   <div id="map" role="main" aria-label="Interactive transit map"></div>
 
   <div id="heatmap-overlay" class="hud-panel controls">
@@ -2581,7 +2623,7 @@
   });
   const nightTiles = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png");
   const map = L.map("map",{center:[12.9755,79.1650],zoom:14, zoomControl: false, keyboard: true});
-  L.control.zoom({position: 'topleft'}).addTo(map);
+  L.control.zoom({position: 'topright'}).addTo(map);
   dayTiles.addTo(map);
 
   const trafficLayers = L.layerGroup().addTo(map);
@@ -3973,37 +4015,93 @@
     const startStop = startNode.stop;
     const endStop = endNode.stop;
 
-    // 2. Identify which routes actually travel between these two stops
-    const validRoutes = [];
+    // 2. Check for Direct Routes First (without directional constraint)
+    let directRoutes = [];
     for (const [routeName, stopIds] of Object.entries(BUS_ROUTES)) {
-      const sIdx = stopIds.indexOf(startStop.stop_id);
-      const eIdx = stopIds.indexOf(endStop.stop_id);
-      
-      // The route must contain both stops, and the bus must be traveling in the right direction
-      if (sIdx !== -1 && eIdx !== -1 && sIdx < eIdx) {
-        validRoutes.push(routeName);
+      if (stopIds.includes(startStop.stop_id) && stopIds.includes(endStop.stop_id)) {
+        directRoutes.push(routeName);
       }
     }
 
-    if (validRoutes.length === 0) {
-      body.innerHTML = `
-        <div class="empty-state" style="padding: 20px 10px;">
-          <div style="font-size: 30px; margin-bottom: 10px;">🚷</div>
-          <div class="empty-state-text">No Direct Route</div>
-          <div class="empty-state-subtext">No single bus travels directly from ${startStop.name} to ${endStop.name}.</div>
-        </div>`;
-      return;
+    let transferRoute = null;
+    let transferStop = null;
+    let transferStopObj = null;
+    let isTransfer = false;
+
+    // 3. If no direct route, calculate transfer
+    if (directRoutes.length === 0) {
+      // Find all routes containing the start stop
+      const startRoutes = [];
+      for (const [routeName, stopIds] of Object.entries(BUS_ROUTES)) {
+        if (stopIds.includes(startStop.stop_id)) {
+          startRoutes.push(routeName);
+        }
+      }
+
+      // Find all routes containing the end stop
+      const endRoutes = [];
+      for (const [routeName, stopIds] of Object.entries(BUS_ROUTES)) {
+        if (stopIds.includes(endStop.stop_id)) {
+          endRoutes.push(routeName);
+        }
+      }
+
+      // If no routes serve either stop, fail
+      if (startRoutes.length === 0 || endRoutes.length === 0) {
+        body.innerHTML = `
+          <div class="empty-state" style="padding: 20px 10px;">
+            <div style="font-size: 30px; margin-bottom: 10px;">🚷</div>
+            <div class="empty-state-text">No Route Found</div>
+            <div class="empty-state-subtext">No bus service connects ${startStop.name} and ${endStop.name}.</div>
+          </div>`;
+        return;
+      }
+
+      // Find a common stop between start and end routes (transfer point)
+      for (const startRoute of startRoutes) {
+        const startStopIds = BUS_ROUTES[startRoute];
+        for (const endRoute of endRoutes) {
+          const endStopIds = BUS_ROUTES[endRoute];
+          
+          // Find a common stop (other than start/end)
+          for (const stopId of startStopIds) {
+            if (endStopIds.includes(stopId) && stopId !== startStop.stop_id) {
+              transferStop = stopId;
+              transferRoute = { firstLeg: startRoute, secondLeg: endRoute };
+              // Find the stop object for the transfer point
+              transferStopObj = STOP_DATA.find(s => s.stop_id === transferStop);
+              break;
+            }
+          }
+          if (transferStop) break;
+        }
+        if (transferStop) break;
+      }
+
+      if (!transferStop) {
+        body.innerHTML = `
+          <div class="empty-state" style="padding: 20px 10px;">
+            <div style="font-size: 30px; margin-bottom: 10px;">🚷</div>
+            <div class="empty-state-text">No Route Available</div>
+            <div class="empty-state-subtext">Transfer routes not available between these locations.</div>
+          </div>`;
+        return;
+      }
+
+      isTransfer = true;
+      directRoutes = [transferRoute.firstLeg]; // Fetch buses on the first leg
     }
 
-    // 3. Fetch live active buses on those specific routes
+    // 4. Fetch live active buses
     try {
       const res = await fetch(`${API_BASE}/api/bus_locations`);
       const allBuses = await res.json();
       const now = Date.now();
 
+      const routeNamesToFetch = Array.isArray(directRoutes) ? directRoutes : [directRoutes.firstLeg];
       const availableBuses = allBuses.filter(b => {
         const age = now - new Date(b.last_updated).getTime();
-        return age < THRESHOLDS.OFFLINE_MS && validRoutes.includes(b.route_name);
+        return age < THRESHOLDS.OFFLINE_MS && routeNamesToFetch.some(r => b.route_name === r);
       });
 
       if (availableBuses.length === 0) {
@@ -4016,35 +4114,162 @@
         return;
       }
 
-      // 4. Calculate walking distances and ETAs
+      // 5. Calculate walking distances and ETAs
       const walkingSpeed = 5; // km/h
       const walkToStopDist = map.distance([startLatLng.lat, startLatLng.lng], [startStop.latitude, startStop.longitude]);
-      const walkFromStopDist = map.distance([endStop.latitude, endStop.longitude], [endLatLng.lat, endLatLng.lng]);
+      const walkFromStopDist = isTransfer 
+        ? map.distance([endStop.latitude, endStop.longitude], [endLatLng.lat, endLatLng.lng])
+        : map.distance([endStop.latitude, endStop.longitude], [endLatLng.lat, endLatLng.lng]);
       
       const walkToStopMins = computeETAinMinutes(walkToStopDist, walkingSpeed);
       const walkFromStopMins = computeETAinMinutes(walkFromStopDist, walkingSpeed);
-      
-      // 5. Calculate ETAs to the boarding stop
+      const transferPenalty = isTransfer ? 5 : 0; // 5-minute transfer penalty
+
+      // 6. Calculate ETAs
       const cards = availableBuses.map(b => {
         const distToPickup = map.distance([b.latitude, b.longitude], [startStop.latitude, startStop.longitude]);
         const pickupEta = computeETAinMinutes(distToPickup, b.current_speed || 18);
         
-        // Estimate the ride duration
-        const distJourney = map.distance([startStop.latitude, startStop.longitude], [endStop.latitude, endStop.longitude]);
-        const journeyEta = computeETAinMinutes(distJourney, 18);
-        
-        // Total trip time
-        const totalTripTime = walkToStopMins + pickupEta + journeyEta + walkFromStopMins;
+        let journeyEta;
+        if (isTransfer) {
+          // Distance to transfer stop
+          journeyEta = computeETAinMinutes(
+            map.distance([startStop.latitude, startStop.longitude], [transferStopObj.latitude, transferStopObj.longitude]),
+            18
+          );
+        } else {
+          // Distance to final destination
+          journeyEta = computeETAinMinutes(
+            map.distance([startStop.latitude, startStop.longitude], [endStop.latitude, endStop.longitude]),
+            18
+          );
+        }
 
+        const totalTripTime = walkToStopMins + pickupEta + journeyEta + transferPenalty + walkFromStopMins;
         const occ = Math.round((b.passenger_count / BUS_CAPACITY) * 100);
         const occClass = occ >= 80 ? 'high' : occ >= 50 ? 'medium' : '';
 
         return { ...b, pickupEta, journeyEta, occ, occClass, totalTripTime };
       }).sort((a, b) => a.totalTripTime - b.totalTripTime);
 
-      // 6. Render Multi-Modal Transit Itinerary with Walking Steps
+      // 7. Build status banner
+      const statusBanner = isTransfer 
+        ? `<div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px; margin-bottom: 12px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #92400e;">🔄 Transfer Required at ${transferStopObj.name}</div>`
+        : `<div style="background: #d1fae5; border-left: 4px solid #10b981; padding: 10px; margin-bottom: 12px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #065f46;">✅ Direct Route Available</div>`;
+
+      // 8. Build itinerary steps
+      const itinerarySteps = (b) => {
+        if (isTransfer) {
+          return `
+            <!-- Step 1: Walk to Bus Stop -->
+            <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
+              <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Bus Stop</div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
+                  <span style="font-weight: 600; color: #f59e0b;">${walkToStopMins} min</span> 
+                  <span style="color: #94a3b8;">•</span> 
+                  ${Math.round(walkToStopDist)} meters
+                </div>
+                <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${startStop.name}</div>
+              </div>
+            </div>
+            
+            <!-- Step 2: Take First Bus to Transfer Stop -->
+            <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
+              <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚌</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Take Bus ${b.bus_id}</div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
+                  <span style="color: #94a3b8;">Arrives in</span> 
+                  <span style="font-weight: 600; color: #f59e0b;">${b.pickupEta} min</span>
+                  <span style="color: #94a3b8;">•</span>
+                  <span style="color: #94a3b8;">Ride</span>
+                  <span style="font-weight: 600; color: #10b981;">${b.journeyEta} min</span>
+                </div>
+                <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${transferStopObj.name}</div>
+              </div>
+            </div>
+
+            <!-- Step 3: Transfer to Second Bus -->
+            <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
+              <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🔄</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Transfer to ${transferRoute.secondLeg.replace('_', ' ')}</div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
+                  <span style="font-weight: 600; color: #f59e0b;">5 min</span> 
+                  <span style="color: #94a3b8;">•</span>
+                  <span style="color: #94a3b8;">Wait for connecting bus</span>
+                </div>
+                <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${transferStopObj.name}</div>
+              </div>
+            </div>
+
+            <!-- Step 4: Walk to Destination -->
+            <div style="display: flex; align-items: start;">
+              <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Destination</div>
+                <div style="font-size: 12px; color: #64748b;">
+                  <span style="font-weight: 600; color: #f59e0b;">${walkFromStopMins} min</span> 
+                  <span style="color: #94a3b8;">•</span> 
+                  ${Math.round(walkFromStopDist)} meters
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <!-- Step 1: Walk to Bus Stop -->
+            <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
+              <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Bus Stop</div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
+                  <span style="font-weight: 600; color: #f59e0b;">${walkToStopMins} min</span> 
+                  <span style="color: #94a3b8;">•</span> 
+                  ${Math.round(walkToStopDist)} meters
+                </div>
+                <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${startStop.name}</div>
+              </div>
+            </div>
+            
+            <!-- Step 2: Take Bus -->
+            <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
+              <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚌</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Take Bus ${b.bus_id}</div>
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
+                  <span style="color: #94a3b8;">Arrives in</span> 
+                  <span style="font-weight: 600; color: #f59e0b;">${b.pickupEta} min</span>
+                  <span style="color: #94a3b8;">•</span>
+                  <span style="color: #94a3b8;">Ride</span>
+                  <span style="font-weight: 600; color: #10b981;">${b.journeyEta} min</span>
+                </div>
+                <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${endStop.name}</div>
+              </div>
+            </div>
+            
+            <!-- Step 3: Walk to Destination -->
+            <div style="display: flex; align-items: start;">
+              <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
+              <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Destination</div>
+                <div style="font-size: 12px; color: #64748b;">
+                  <span style="font-weight: 600; color: #f59e0b;">${walkFromStopMins} min</span> 
+                  <span style="color: #94a3b8;">•</span> 
+                  ${Math.round(walkFromStopDist)} meters
+                </div>
+              </div>
+            </div>
+          `;
+        }
+      };
+
+      // 9. Render Multi-Modal Transit Itinerary with Transfer Support
       body.innerHTML = `
-        <div style="font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 16px; text-align: center;">
+        ${statusBanner}
+        <div style="font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 12px; text-align: center;">
           🚶 Multi-Modal Route Options
         </div>
         ${cards.map(b => `
@@ -4059,48 +4284,7 @@
             
             <!-- Multi-Modal Timeline -->
             <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-              <!-- Step 1: Walk to Bus Stop -->
-              <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
-                <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
-                <div style="flex: 1;">
-                  <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Bus Stop</div>
-                  <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
-                    <span style="font-weight: 600; color: #f59e0b;">${walkToStopMins} min</span> 
-                    <span style="color: #94a3b8;">•</span> 
-                    ${Math.round(walkToStopDist)} meters
-                  </div>
-                  <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${startStop.name}</div>
-                </div>
-              </div>
-              
-              <!-- Step 2: Take Bus -->
-              <div style="display: flex; align-items: start; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #e2e8f0;">
-                <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚌</div>
-                <div style="flex: 1;">
-                  <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Take Bus ${b.bus_id}</div>
-                  <div style="font-size: 12px; color: #64748b; margin-bottom: 3px;">
-                    <span style="color: #94a3b8;">Arrives in</span> 
-                    <span style="font-weight: 600; color: #f59e0b;">${b.pickupEta} min</span>
-                    <span style="color: #94a3b8;">•</span>
-                    <span style="color: #94a3b8;">Ride</span>
-                    <span style="font-weight: 600; color: #10b981;">${b.journeyEta} min</span>
-                  </div>
-                  <div style="font-size: 11px; color: #2563eb; font-weight: 600;">→ ${endStop.name}</div>
-                </div>
-              </div>
-              
-              <!-- Step 3: Walk to Destination -->
-              <div style="display: flex; align-items: start;">
-                <div style="font-size: 24px; margin-right: 12px; flex-shrink: 0;">🚶</div>
-                <div style="flex: 1;">
-                  <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">Walk to Destination</div>
-                  <div style="font-size: 12px; color: #64748b;">
-                    <span style="font-weight: 600; color: #f59e0b;">${walkFromStopMins} min</span> 
-                    <span style="color: #94a3b8;">•</span> 
-                    ${Math.round(walkFromStopDist)} meters
-                  </div>
-                </div>
-              </div>
+              ${itinerarySteps(b)}
             </div>
             
             <!-- Total Trip Summary -->
@@ -4933,6 +5117,13 @@
       if (routeChart) routeChart.resize();
       if (statusChart) statusChart.resize();
     }
+    
+    // Auto-refresh the directory when the tab is clicked
+    if (tabName === 'tickets') {
+      if (window.Dashboard && typeof window.Dashboard.refreshDirectory === 'function') {
+        window.Dashboard.refreshDirectory();
+      }
+    }
 
     setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
   }
@@ -5112,17 +5303,36 @@
 
   (function(){
     const panel = document.getElementById('side-panel');
-    const btn = document.getElementById('panelToggleBtn');
-    if(!panel || !btn) return;
+    const panelToggleBtn = document.getElementById('panelToggleBtn');
+    const innerToggleBtn = document.getElementById('innerToggleBtn');
+    
+    if(!panel) return;
+    
     function setOpen(open){
-      if(open){ panel.classList.add('open'); btn.setAttribute('aria-expanded','true'); btn.textContent = '◀'; }
-      else { panel.classList.remove('open'); btn.setAttribute('aria-expanded','false'); btn.textContent = '☰'; }
+      if(open){ 
+        panel.classList.add('open');
+        if(panelToggleBtn) { panelToggleBtn.setAttribute('aria-expanded','true'); panelToggleBtn.textContent = '◀'; }
+      }
+      else { 
+        panel.classList.remove('open');
+        if(panelToggleBtn) { panelToggleBtn.setAttribute('aria-expanded','false'); panelToggleBtn.textContent = '☰'; }
+      }
     }
-    btn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(!panel.classList.contains('open')); });
-    // initialize closed
-    setOpen(false);
-    // trigger a window resize shortly after toggling so Leaflet recalculates
-    btn.addEventListener('click', () => { setTimeout(() => window.dispatchEvent(new Event('resize')), 260); });
+    
+    // Handle panelToggleBtn (for mobile/narrow screens)
+    if(panelToggleBtn) {
+      panelToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(!panel.classList.contains('open')); });
+      panelToggleBtn.addEventListener('click', () => { setTimeout(() => window.dispatchEvent(new Event('resize')), 260); });
+    }
+    
+    // Handle innerToggleBtn (in the left sidebar header)
+    if(innerToggleBtn) {
+      innerToggleBtn.addEventListener('click', (e) => { e.stopPropagation(); setOpen(!panel.classList.contains('open')); });
+      innerToggleBtn.addEventListener('click', () => { setTimeout(() => window.dispatchEvent(new Event('resize')), 260); });
+    }
+    
+    // initialize open by default for desktop
+    setOpen(true);
   })();
 
   /* Occupancy Legend Toggle */
@@ -5174,6 +5384,45 @@
         chevron.textContent = '▼';
       }
     });
+  })();
+
+  /* Collapsible Menus for Stop Summary and Monitor HUD */
+  (function(){
+    // Stop Summary Toggle
+    const stopToggle = document.getElementById('stop-summary-toggle');
+    const stopBody = document.getElementById('stop-summary-body');
+    const stopChevron = document.querySelector('.stop-summary-chevron');
+    
+    if(stopToggle && stopBody && stopChevron) {
+      stopToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if(stopBody.style.display !== 'none'){
+          stopBody.style.display = 'none';
+          stopChevron.textContent = '▶';
+        } else {
+          stopBody.style.display = 'block';
+          stopChevron.textContent = '▼';
+        }
+      });
+    }
+
+    // Monitor Status Toggle
+    const monitorToggle = document.getElementById('monitor-toggle');
+    const monitorBodyWrap = document.getElementById('monitor-body-wrap');
+    const monitorChevron = document.querySelector('.monitor-chevron');
+
+    if(monitorToggle && monitorBodyWrap && monitorChevron) {
+      monitorToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if(monitorBodyWrap.style.display !== 'none'){
+          monitorBodyWrap.style.display = 'none';
+          monitorChevron.textContent = '▶';
+        } else {
+          monitorBodyWrap.style.display = 'block';
+          monitorChevron.textContent = '▼';
+        }
+      });
+    }
   })();
   </script>
 
