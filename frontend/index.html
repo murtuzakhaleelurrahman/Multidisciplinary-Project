@@ -4644,12 +4644,20 @@
       const container = document.getElementById('tickets-container');
       if (!container) return;
 
-      // Filter out buses that are offline
+      // Dictionary to convert system route codes into redBus-style Origin ➔ Destination strings
+      const routeNamesMap = {
+        "ROUTE_1": "Katpadi Junction ➔ Bagayam",
+        "ROUTE_2": "VIT Campus ➔ Old Bus Stand",
+        "ROUTE_3": "Vellore ➔ Ranipet/Arcot",
+        "ROUTE_4": "City Center ➔ Sripuram",
+        "ROUTE_5": "Highway Bypass Loop"
+      };
+
+      // Filter out buses that are offline in local state first to show empty state if needed
       const activeBuses = [];
       const now = Date.now();
       state.buses.forEach((busData, busId) => {
-        const age = now - busData.lastUpdate;
-        if (age < THRESHOLDS.OFFLINE_MS) {
+        if ((now - busData.lastUpdate) < THRESHOLDS.OFFLINE_MS) {
           activeBuses.push({ id: busId, ...busData });
         }
       });
@@ -4665,7 +4673,7 @@
         return;
       }
 
-      // Fetch live bus data from API and render cards
+      // Fetch live bus data from API and render redBus style cards
       fetch(`${API_BASE}/api/bus_locations`)
         .then(res => res.json())
         .then(data => {
@@ -4676,28 +4684,50 @@
                 const occ = Math.round((b.passenger_count / BUS_CAPACITY) * 100);
                 const occClass = occ >= 80 ? 'high' : occ >= 50 ? 'medium' : '';
                 
+                // Get the next stop name safely
                 let nextStop = "En route";
                 const stopObj = STOP_DATA.find(s => s.stop_id === b.current_stop_id);
                 if(stopObj) nextStop = stopObj.name;
 
+                // Map the route code to the human-readable string
+                const routeTitle = routeNamesMap[b.route_name] || "Smart Transit Route";
+
                 return `
-                  <div class="ticket-container">
-                    <div class="ticket-header">
-                      <div class="route-info">
-                        <span class="route-label">BUS ${b.bus_id}</span>
-                        <h4 style="font-size: 14px;">Next: ${nextStop}</h4>
+                  <div class="ticket-container" style="border-left: 4px solid #2563eb; padding: 16px;">
+                    
+                    <div class="ticket-header" style="margin-bottom: 12px; align-items: center;">
+                      <div class="route-info" style="width: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                           <span style="font-weight: 800; font-size: 16px; color: #1e293b; line-height: 1.2;">${routeTitle}</span>
+                           <div class="occupancy-badge ${occClass}" style="margin-left: 10px; flex-shrink: 0;">${occ}% Full</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b;">
+                          <span style="background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-weight: 700; color: #334155;">🚌 ${b.bus_id}</span>
+                          <span>•</span>
+                          <span>Next: <strong style="color: #2563eb;">${nextStop}</strong></span>
+                        </div>
                       </div>
-                      <div class="occupancy-badge ${occClass}">${occ}% Full</div>
                     </div>
                     
-                    <div class="ticket-meta">
-                      <div class="meta-item"><div class="meta-label">👥 Passengers</div><div class="meta-value">${b.passenger_count}</div></div>
-                      <div class="meta-item"><div class="meta-label">⚡ Status</div><div class="meta-value on-time">🟢 Live</div></div>
+                    <div class="ticket-meta" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 12px 0; border-top: 1px dashed #e2e8f0; padding-top: 12px;">
+                      <div style="text-align: center;">
+                        <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 600;">Passengers</div>
+                        <div style="font-size: 15px; font-weight: 800; color: #1e293b; margin-top: 2px;">${b.passenger_count}<span style="font-size:11px; color:#94a3b8; font-weight:500;">/${BUS_CAPACITY}</span></div>
+                      </div>
+                      <div style="text-align: center; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+                        <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 600;">Speed</div>
+                        <div style="font-size: 15px; font-weight: 800; color: #10b981; margin-top: 2px;">${Math.round(b.current_speed || 0)} <span style="font-size:11px; font-weight:500;">km/h</span></div>
+                      </div>
+                      <div style="text-align: center;">
+                        <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 600;">Status</div>
+                        <div style="font-size: 14px; font-weight: 800; color: #10b981; margin-top: 2px;">● LIVE</div>
+                      </div>
                     </div>
                     
-                    <div class="ticket-footer">
-                      <button class="action-btn primary" onclick="Dashboard.trackBus('${b.bus_id}', ${b.latitude}, ${b.longitude})">📍 Track on Map</button>
+                    <div class="ticket-footer" style="margin-top: 0;">
+                      <button class="action-btn primary" onclick="Dashboard.trackBus('${b.bus_id}', ${b.latitude}, ${b.longitude})" style="padding: 10px; width: 100%;">📍 Track Live on Map</button>
                     </div>
+                    
                   </div>
                 `;
             }).join('');
