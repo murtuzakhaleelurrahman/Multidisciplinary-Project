@@ -77,6 +77,14 @@
     outline: 2px solid #fff;
   }
 
+  /* Hide OSRM Driving Directions */
+  .leaflet-routing-alt { display: none !important; }
+  .leaflet-routing-container { background: transparent !important; box-shadow: none !important; }
+
+  /* Hide OSRM Driving Directions */
+  .leaflet-routing-alt { display: none !important; }
+  .leaflet-routing-container { background: transparent !important; box-shadow: none !important; }
+
   .planner-input {
     width: 100%;
     box-sizing: border-box;
@@ -3035,14 +3043,25 @@
   routing.on('routesfound', function(e) {
     const routes = e.routes;
     state.routingInProgress = false;
-    // Re-enable Find Route button and clear loading text
+    
     const btn = document.querySelector('[data-action="find-route"]');
-    if (btn) { btn.disabled = false; btn.textContent = '🔍 Find Route'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Find Best Route'; }
     
     if (routes && routes.length > 0) {
       const waypoints = routes[0].waypoints;
+      
+      // Get exact coordinates of the Start and End points chosen by user
+      const startPoint = waypoints[0].latLng;
       const lastPoint = waypoints[waypoints.length - 1].latLng;
       state.destination = lastPoint;
+      state.routeStartPoint = startPoint; // Store for periodic refresh
+
+      // Hide the default OSRM UI box completely
+      const osrmContainer = document.querySelector('.leaflet-routing-container');
+      if (osrmContainer) osrmContainer.style.display = 'none';
+      
+      // Generate our custom Bus Itinerary!
+      updateTransitOptions(startPoint, lastPoint);
     }
   });
 
@@ -3799,79 +3818,123 @@
     }
   }
 
-  /* ================= ROUTE COMPARISON (ESTIMATED) ================= */
-  function updateRouteComparison(){
+  /* ================= SMART TRANSIT ROUTING ENGINE ================= */
+  async function updateTransitOptions(startLatLng, endLatLng) {
     const card = document.getElementById('route-compare-card');
     const body = document.getElementById('route-compare-body');
-    if(!card || !body) return;
-    if(!state.destination){ 
-      card.style.display = 'block';
+    if (!card || !body) return;
+
+    card.style.display = 'block';
+    body.innerHTML = `<div class="placeholder-text"><span class="loader"></span> Scanning live fleet...</div>`;
+
+    // 1. Find the nearest bus stops to the user's start and end points
+    const startNode = findNearestStop(startLatLng);
+    const endNode = findNearestStop(endLatLng);
+
+    if (!startNode || !endNode || startNode.dist > 2000 || endNode.dist > 2000) {
       body.innerHTML = `
-        <div class="placeholder-text">
-          <div style="font-size:20px; margin-bottom:5px;">🧭</div>
-          Navigation Idle. Enter a destination to compare the best available buses.
+        <div class="empty-state" style="padding: 20px 10px;">
+          <div style="font-size: 30px; margin-bottom: 10px;">🚶</div>
+          <div class="empty-state-text">No Stops Nearby</div>
+          <div class="empty-state-subtext">Try selecting locations closer to the bus routes.</div>
         </div>`;
-      return; 
-    }
-
-    // Gather candidate buses from state.buses
-    const now = Date.now();
-    const candidates = [];
-    state.buses.forEach((entry, busId) => {
-      if(!entry || !entry.pos || !entry.lastUpdate) return;
-      const age = now - entry.lastUpdate;
-      if(age > THRESHOLDS.OFFLINE_MS) return; // ignore offline buses
-      // Respect guardian mode: only include tracked bus if guardian active
-      if(state.guardianMode && state.trackedBusId && busId !== state.trackedBusId) return;
-      // Respect focusMode: the fleet display already filters distant buses; include only visible ones
-      // We'll rely on state.buses map entries which mirror displayed markers.
-
-      // Compute wait time (walking) from user to bus if user position exists
-      let waitMin = 0;
-      if(state.userMarker && state.userMarker.getLatLng){
-        const d = map.distance(state.userMarker.getLatLng(), [entry.pos.lat, entry.pos.lon]);
-        waitMin = computeETAinMinutes(d, CONFIG.WALKING_SPEED);
-      }
-
-      // Compute travel time from bus to destination using actual computed speed or fallback
-      const d2 = map.distance([entry.pos.lat, entry.pos.lon], [state.destination.lat, state.destination.lng || state.destination.lon]);
-      const stale = age > THRESHOLDS.STALE_MS;
-      
-      // Build segment ID for smart routing
-      const segmentId = entry.lastStopId && entry.lastStopId !== "UNKNOWN" 
-        ? `${entry.lastStopId}->DEST` 
-        : null;
-      
-      const travelMin = computeSmartETA(d2, segmentId, entry.computedSpeed, stale);
-
-      const total = waitMin + travelMin;
-      candidates.push({ busId, waitMin, travelMin, total, age });
-    });
-
-    if(candidates.length === 0){
-      card.style.display = 'block';
-      body.innerHTML = `<div class="placeholder-text">Scanning for active fleet...</div>`;
       return;
     }
 
-    // Sort and pick top 3
-    candidates.sort((a,b) => a.total - b.total);
-    const top = candidates.slice(0,3);
+    const startStop = startNode.stop;
+    const endStop = endNode.stop;
 
-    // Render list
-    const rows = top.map(c => {
-      const stale = c.age > THRESHOLDS.STALE_MS;
-      return `<div class="route-row ${stale? 'stale-option':''}">
-        <div style="display:flex;justify-content:space-between;">
-          <strong>${c.busId}</strong>
-          <span style="font-size:12px;">~${Math.round(c.total)} min</span>
+    // 2. Identify which routes actually travel between these two stops
+    const validRoutes = [];
+    for (const [routeName, stopIds] of Object.entries(BUS_ROUTES)) {
+      const sIdx = stopIds.indexOf(startStop.stop_id);
+      const eIdx = stopIds.indexOf(endStop.stop_id);
+      
+      // The route must contain both stops, and the bus must be traveling in the right direction
+      if (sIdx !== -1 && eIdx !== -1 && sIdx < eIdx) {
+        validRoutes.push(routeName);
+      }
+    }
+
+    if (validRoutes.length === 0) {
+      body.innerHTML = `
+        <div class="empty-state" style="padding: 20px 10px;">
+          <div style="font-size: 30px; margin-bottom: 10px;">🚷</div>
+          <div class="empty-state-text">No Direct Route</div>
+          <div class="empty-state-subtext">No single bus travels directly from ${startStop.name} to ${endStop.name}.</div>
+        </div>`;
+      return;
+    }
+
+    // 3. Fetch live active buses on those specific routes
+    try {
+      const res = await fetch(`${API_BASE}/api/bus_locations`);
+      const allBuses = await res.json();
+      const now = Date.now();
+
+      const availableBuses = allBuses.filter(b => {
+        const age = now - new Date(b.last_updated).getTime();
+        return age < THRESHOLDS.OFFLINE_MS && validRoutes.includes(b.route_name);
+      });
+
+      if (availableBuses.length === 0) {
+        body.innerHTML = `
+          <div class="empty-state" style="padding: 20px 10px;">
+            <div style="font-size: 30px; margin-bottom: 10px;">🚏</div>
+            <div class="empty-state-text">Waiting for Bus</div>
+            <div class="empty-state-subtext">No active buses currently operating on this path.</div>
+          </div>`;
+        return;
+      }
+
+      // 4. Calculate ETAs to the boarding stop
+      const cards = availableBuses.map(b => {
+        const distToPickup = map.distance([b.latitude, b.longitude], [startStop.latitude, startStop.longitude]);
+        const pickupEta = computeETAinMinutes(distToPickup, b.current_speed || 18);
+        
+        // Estimate the ride duration
+        const distJourney = map.distance([startStop.latitude, startStop.longitude], [endStop.latitude, endStop.longitude]);
+        const journeyEta = computeETAinMinutes(distJourney, 18);
+
+        const occ = Math.round((b.passenger_count / BUS_CAPACITY) * 100);
+        const occClass = occ >= 80 ? 'high' : occ >= 50 ? 'medium' : '';
+
+        return { ...b, pickupEta, journeyEta, occ, occClass };
+      }).sort((a, b) => a.pickupEta - b.pickupEta);
+
+      // 5. Render Beautiful Transit Itinerary Cards
+      body.innerHTML = `
+        <div style="font-size: 13px; color: #2563eb; font-weight: 700; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee;">
+          📍 Board at: ${startStop.name}
         </div>
-        <div style="font-size:11px;opacity:0.7;margin-top:2px;">Wait: ${Math.round(c.waitMin)}m | Ride: ${Math.round(c.travelMin)}m${stale? ' (stale)':''}</div>
-      </div>`;
-    }).join('');
-
-    body.innerHTML = rows;
-    card.style.display = 'block';
+        ${cards.map(b => `
+          <div class="ticket-container" style="margin: 0 0 12px 0; border-left: 4px solid #10b981; padding: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <div style="font-weight: 800; font-size: 16px; color: #1e293b;">BUS ${b.bus_id}</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Route: ${b.route_name.replace('_', ' ')}</div>
+              </div>
+              <div class="occupancy-badge ${b.occClass}" style="margin:0;">${b.occ}% Full</div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700;">Arrives In</div>
+                <div style="font-size: 16px; font-weight: 800; color: #f59e0b;">~${b.pickupEta} min</div>
+              </div>
+              <div style="background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700;">Ride Time</div>
+                <div style="font-size: 16px; font-weight: 800; color: #10b981;">~${b.journeyEta} min</div>
+              </div>
+            </div>
+            
+            <button class="ui-btn btn-blue" style="width: 100%; padding: 10px;" onclick="map.flyTo([${b.latitude}, ${b.longitude}], 16, {animate: true});">📍 Locate Bus</button>
+          </div>
+        `).join('')}
+      `;
+    } catch (err) {
+      body.innerHTML = `<div class="placeholder-text">Failed to fetch route data.</div>`;
+    }
   }
 
 
@@ -4205,7 +4268,7 @@
     // Refresh monitoring HUD after fleet processed
     updateMonitorHUD();
     // Refresh route comparison when destination exists
-    if(state.destination) updateRouteComparison();
+    if(state.destination && state.routeStartPoint) updateTransitOptions(state.routeStartPoint, state.destination);
     // Refresh stop summary card after fleet processed
     updateStopSummaryCard();
 
