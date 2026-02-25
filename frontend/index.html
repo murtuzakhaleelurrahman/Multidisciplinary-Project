@@ -1731,13 +1731,14 @@
   };
 
   function setAdminFeatureVisibility(isAdmin) {
-    const adminFeatures = [
-      document.querySelector('[data-action="add-bus"]'),
-      document.querySelector('[data-action="reset-system"]')
-    ];
-
+    const adminFeatures = document.querySelectorAll('[data-action="add-bus"], [data-action="reset-system"], .admin-feature');
     adminFeatures.forEach(el => {
-      if (el) el.style.display = isAdmin ? 'block' : 'none';
+      if (isAdmin) {
+        // Keep the perfect alignment for the YouTube-style menu buttons
+        el.style.display = el.classList.contains('yt-menu-item') ? 'flex' : 'block';
+      } else {
+        el.style.display = 'none';
+      }
     });
   }
 
@@ -1988,6 +1989,42 @@
   };
 
   setAdminFeatureVisibility(false);
+
+  /* ================= DYNAMIC MONITOR DROPDOWN POPULATION ================= */
+  window.populateMonitorDropdown = function() {
+    const monitorSelect = document.getElementById('monitorBusSelect');
+    if (!monitorSelect) return;
+
+    if (!state.selectedStop) {
+        monitorSelect.innerHTML = '<option value="">-- Select a Stop First --</option>';
+        monitorSelect.disabled = true;
+        return;
+    }
+
+    // Identify which routes service this exact stop
+    const validRoutes = Object.keys(BUS_ROUTES).filter(r => BUS_ROUTES[r].includes(state.selectedStop.stop_id));
+    
+    let optionsHtml = '';
+    let busCount = 0;
+    
+    state.buses.forEach((entry, busId) => {
+        if ((Date.now() - entry.lastUpdate) < THRESHOLDS.OFFLINE_MS) {
+            // Check if the bus is operating on a valid route for this stop
+            if (entry.routeName && validRoutes.includes(entry.routeName)) {
+                optionsHtml += `<option value="${busId}">${busId} (${entry.routeName.replace('_', ' ')})</option>`;
+                busCount++;
+            }
+        }
+    });
+
+    if (busCount === 0) {
+        monitorSelect.innerHTML = '<option value="">-- No Active Buses En Route --</option>';
+        monitorSelect.disabled = true;
+    } else {
+        monitorSelect.innerHTML = optionsHtml;
+        monitorSelect.disabled = false;
+    }
+  };
 
   /* ================= 0. SESSION & GLOBAL INIT ================= */
   // Safe mode reset: add ?logout=1 or ?reset=1 to clear saved session
@@ -2926,10 +2963,20 @@
 
   /* ================= GLOBAL EVENT DISPATCHER ================= */
   document.addEventListener('click', function(e) {
-    const target = e.target.closest('[data-action]') || e.target;
-    const action = target.getAttribute('data-action');
+    // Find the element with data-action, traversing up the DOM tree if needed
+    let target = e.target;
+    while (target && target !== document.body) {
+      if (target.hasAttribute && target.hasAttribute('data-action')) break;
+      target = target.parentElement;
+    }
     
-    if (!action && !target.classList.contains('popup-btn') && !target.classList.contains('predict-trigger')) return;
+    const action = target && target.hasAttribute ? target.getAttribute('data-action') : null;
+    
+    // Also check if the original target is a popup button or predict trigger
+    const isPopupBtn = e.target.classList.contains('popup-btn') || e.target.closest('.popup-btn');
+    const isPredictTrigger = e.target.classList.contains('predict-trigger');
+    
+    if (!action && !isPopupBtn && !isPredictTrigger) return;
 
     // System Actions
     if (action === 'toggle-theme') {
@@ -3147,16 +3194,59 @@
       fetch(`${API_BASE}/api/system/reset`, {method: "POST"}).then(() => location.href = location.pathname);
     }
     else if (action === 'locate-user') {
-      if(!navigator.geolocation) return alert("GPS not supported");
-      const originalText = target.innerHTML; 
-      target.textContent = "⏳ Finding...";
-      navigator.geolocation.getCurrentPosition(pos => {
-        if(state.userMarker) map.removeLayer(state.userMarker);
-        const icon = L.divIcon({ className: 'user-pin', html: `<div style="font-size:32px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4));">📍</div>`, iconSize: [32, 40], iconAnchor: [16, 40] });
-        state.userMarker = L.marker([pos.coords.latitude, pos.coords.longitude], {icon}).addTo(map);
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 16);
-        target.innerHTML = originalText; 
-      }, () => target.innerHTML = originalText);
+      if(!navigator.geolocation) {
+        UI.toast('⚠️ GPS not supported on this device', 'warning');
+        return;
+      }
+      
+      // Save original button content
+      const originalHTML = target.innerHTML;
+      
+      // Show loading state
+      target.innerHTML = '<span class="yt-icon">⏳</span><span class="yt-label">Finding...</span>';
+      target.disabled = true;
+      
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          // Success callback
+          if(state.userMarker) map.removeLayer(state.userMarker);
+          const icon = L.divIcon({ 
+            className: 'user-pin', 
+            html: `<div style="font-size:32px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.4));">📍</div>`, 
+            iconSize: [32, 40], 
+            iconAnchor: [16, 40] 
+          });
+          state.userMarker = L.marker([pos.coords.latitude, pos.coords.longitude], {icon}).addTo(map);
+          map.flyTo([pos.coords.latitude, pos.coords.longitude], 16);
+          
+          // Restore button
+          target.innerHTML = originalHTML;
+          target.disabled = false;
+          
+          UI.toast(`📍 Location found (±${Math.round(pos.coords.accuracy)}m)`, 'success');
+        },
+        (error) => {
+          // Error callback
+          target.innerHTML = originalHTML;
+          target.disabled = false;
+          
+          let errorMsg = 'Could not get your location';
+          if (error.code === error.PERMISSION_DENIED) {
+            errorMsg = '⚠️ Location permission denied. Please enable location access.';
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            errorMsg = '⚠️ Location unavailable. Check your GPS settings.';
+          } else if (error.code === error.TIMEOUT) {
+            errorMsg = '⚠️ Location request timed out. Try again.';
+          }
+          
+          UI.toast(errorMsg, 'error');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
     }
 
     // Routing Actions
@@ -4452,6 +4542,13 @@
   let chartSpeedData = [];
 
   function initChart() {
+    // Check if Chart.js is loaded
+    if (typeof Chart === 'undefined') {
+      console.warn('Chart.js not loaded yet, will retry...');
+      setTimeout(initChart, 100);
+      return;
+    }
+    
     // Initialize Speed Chart (Line Chart)
     const speedCtx = document.getElementById('fleetSpeedChart');
     if (speedCtx && !speedChart) {
@@ -4690,6 +4787,11 @@
 
     // Force Chart.js to recalculate its container size when the analytics tab becomes visible
     if (tabName === 'analytics') {
+      // Initialize charts if they haven't been created yet
+      if (!speedChart || !routeChart || !statusChart) {
+        initChart();
+      }
+      // Resize existing charts to fit container
       if (speedChart) speedChart.resize();
       if (routeChart) routeChart.resize();
       if (statusChart) statusChart.resize();
@@ -4714,42 +4816,6 @@
     modal.style.display = 'block';
     // Small delay to allow CSS transition to trigger
     setTimeout(() => modal.classList.add('active'), 10); 
-  };
-
-  /* ================= DYNAMIC MONITOR DROPDOWN POPULATION ================= */
-  window.populateMonitorDropdown = function() {
-    const monitorSelect = document.getElementById('monitorBusSelect');
-    if (!monitorSelect) return;
-
-    if (!state.selectedStop) {
-        monitorSelect.innerHTML = '<option value="">-- Select a Stop First --</option>';
-        monitorSelect.disabled = true;
-        return;
-    }
-
-    // Identify which routes service this exact stop
-    const validRoutes = Object.keys(BUS_ROUTES).filter(r => BUS_ROUTES[r].includes(state.selectedStop.stop_id));
-    
-    let optionsHtml = '';
-    let busCount = 0;
-    
-    state.buses.forEach((entry, busId) => {
-        if ((Date.now() - entry.lastUpdate) < THRESHOLDS.OFFLINE_MS) {
-            // Check if the bus is operating on a valid route for this stop
-            if (entry.routeName && validRoutes.includes(entry.routeName)) {
-                optionsHtml += `<option value="${busId}">${busId} (${entry.routeName.replace('_', ' ')})</option>`;
-                busCount++;
-            }
-        }
-    });
-
-    if (busCount === 0) {
-        monitorSelect.innerHTML = '<option value="">-- No Active Buses En Route --</option>';
-        monitorSelect.disabled = true;
-    } else {
-        monitorSelect.innerHTML = optionsHtml;
-        monitorSelect.disabled = false;
-    }
   };
 
   /* ================= DASHBOARD OBJECT (NATIVE TABS) ================= */
@@ -4864,7 +4930,7 @@
                     </div>
                     
                     <div class="ticket-footer" style="margin-top: 0;">
-                      <button class="action-btn primary" onclick="Dashboard.trackBus('${b.bus_id}', ${b.latitude}, ${b.longitude})" style="padding: 10px; width: 100%;">📍 Track Live on Map</button>
+                      <button class="action-btn primary" onclick="window.Dashboard.trackBus('${b.bus_id}', ${b.latitude}, ${b.longitude})" style="padding: 10px; width: 100%;">📍 Track Live on Map</button>
                     </div>
                     
                   </div>
