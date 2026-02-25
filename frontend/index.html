@@ -720,13 +720,6 @@
     color: #2ecc71;
   }
   
-  /* Pulse animation for monitoring bell icon */
-  #monitor-hud::before {
-    content: '🔔';
-    display: inline-block;
-    margin-right: 8px;
-    animation: bell-pulse 2s infinite;
-  }
   @keyframes bell-pulse {
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.1); opacity: 0.8; }
@@ -1298,99 +1291,61 @@
       </div>
 
       <div id="content-fleet" class="tab-content active">
-        <!-- 1) Bus / Stop Controls -->
         <section class="panel-section" id="panel-commands">
-            <div class="hud-panel top-bar" style="margin-bottom:8px;">
-              <strong>🚌 Command</strong>
-              <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
-                <select id="busSelect" style="width:100%;box-sizing:border-box;"><option value="ALL">All Fleet</option></select>
-                <div id="stopSearchWrap" style="position:relative;">
-                  <input id="stopSearch" type="text" placeholder="🔍 Search stop name…" style="width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #ddd;" />
-                </div>
-                <!-- Proximity Actions -->
-                <div style="display:flex;gap:6px;">
-                  <button class="ui-btn btn-blue" id="btn-nearest-bus" style="flex:1; font-size:12px;">🚌 Nearest Bus</button>
-                  <button class="ui-btn btn-blue" id="btn-nearest-stop" style="flex:1; font-size:12px;">🚏 Nearest Stop</button>
-                </div>
-                <button id="monitorStopBtn" class="ui-btn btn-indigo" style="width:100%;">🔔 Monitor</button>
-                <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding-top:4px;color:var(--text-color);">
-                  <span id="dataFreshness">● <span id="dataFreshText">Data: --</span></span>
-                  <span><b id="fleetCount">0</b></span>
-                </div>
-              </div>
+          <div class="hud-panel accordion-panel">
+            <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+              <div style="font-weight:700;">🚌 Fleet Command</div>
+              <span class="accordion-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
             </div>
-        </section>
-
-        <!-- System Controls (moved inside panel for single control surface) -->
-        <section class="panel-section" id="panel-system">
-          <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">⚙️ Actions</div>
-          <div class="hud-panel controls">
-            <div style="display:flex; gap:6px; flex-direction:column;">
-              <button class="ui-btn btn-blue" data-action="toggle-theme">🌙 Night</button>
-              <button id="focusBtn" class="ui-btn btn-blue" data-action="toggle-focus">🎯 Focus</button>
-              <button class="ui-btn btn-gray" data-action="logout" style="border:1px solid #ccc; color:#333;">🚪 Logout</button>
-              
-              <button class="ui-btn btn-blue" data-action="add-bus" style="display:none;">➕ Random Bus</button>
-              
-              <div id="admin-extended-controls" style="display:none; margin-top: 8px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,0.1);">
-                <div style="font-size: 11px; font-weight: 700; color: #f97316; margin-bottom: 8px; text-transform: uppercase;">🛠️ Advanced Admin</div>
-                
-                <select id="admin-route-select" style="width:100%; margin-bottom:8px; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px;">
-                  <option value="RANDOM">Random Route</option>
-                  <option value="ROUTE_1">Route 1 (VIT ⇄ Old Bus Stand)</option>
-                  <option value="ROUTE_2">Route 2 (Bagayam)</option>
-                  <option value="ROUTE_3">Route 3 (Sathuvachari)</option>
-                  <option value="ROUTE_4">Route 4 (Shenbakkam)</option>
-                  <option value="ROUTE_5">Route 5 (Katpadi Local)</option>
-                </select>
-                
-                <div style="display:flex; gap:6px;">
-                  <button class="ui-btn btn-green" data-action="spawn-route-bus" style="flex:1;">🚌 Spawn</button>
-                  <button class="ui-btn btn-gray" data-action="clear-sims" style="flex:1; color:#dc2626; border:1px solid #dc2626; background:transparent;">🧹 Stop Sims</button>
-                </div>
-                
-                <button class="ui-btn btn-indigo" data-action="broadcast-alert" style="width:100%; margin-top:6px;">📢 Broadcast Alert</button>
+            <div class="accordion-body" style="display: block; margin-top: 10px;">
+              <select id="busSelect" style="width:100%;box-sizing:border-box;margin-bottom:8px;"><option value="ALL">All Fleet</option></select>
+              <div id="stopSearchWrap" style="position:relative; margin-bottom:8px;">
+                <input id="stopSearch" type="text" placeholder="🔍 Search stop name…" style="width:100%;box-sizing:border-box;padding:8px;border-radius:6px;border:1px solid #ddd;" />
               </div>
-
-              <button class="ui-btn btn-red" data-action="reset-system" style="display:none; margin-top:10px;">☢️ Hard Reset Backend</button>
+              <div style="display:flex;gap:6px; margin-bottom:8px;">
+                <button class="ui-btn btn-blue" id="btn-nearest-bus" style="flex:1; font-size:12px;">🚌 Nearest Bus</button>
+                <button class="ui-btn btn-blue" id="btn-nearest-stop" style="flex:1; font-size:12px;">🚏 Nearest Stop</button>
+              </div>
+              <button id="monitorStopBtn" class="ui-btn btn-indigo" style="width:100%;">🔔 Monitor</button>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding-top:8px;color:var(--text-color);">
+                <span id="dataFreshness">● <span id="dataFreshText">Data: --</span></span>
+                <span>Fleet: <b id="fleetCount">0</b></span>
+              </div>
             </div>
           </div>
         </section>
       </div>
 
       <div id="content-planner" class="tab-content">
-        <!-- 1) Route Search (moved) -->
         <section class="panel-section" id="panel-routing">
           <div id="routing-wrapper" class="open">
-            <div id="routing-toggle" data-action="toggle-routing" role="button" aria-expanded="true" aria-controls="routing-container">
-              <div class="rt-icon">🧭</div>
-              <div class="rt-label">Route Planner</div>
-              <div style="font-size:12px; opacity:0.6;">Toggle</div>
-            </div>
-            <div id="routing-container">
-              <div class="routing-header">
-                <span>Route Planner</span>
-                <button class="btn-close" data-action="close-routing" aria-label="Close Route Planner">✕</button>
+            <div class="hud-panel accordion-panel">
+              <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; border-bottom: 1px solid rgba(0,0,0,0.08); padding-bottom: 8px;">
+                <div style="font-weight:700;">🧭 Route Planner</div>
+                <span class="accordion-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
               </div>
-              <div id="route-planner-container" class="hud-panel" style="margin: 0; box-shadow: none;">
-                <div style="display:flex; flex-direction:column; gap:8px;">
-                  <input id="routeFrom" placeholder="From location..." class="planner-input" style="padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:14px; box-sizing:border-box;">
-                  <input id="routeTo" placeholder="To location..." class="planner-input" style="padding:10px; border:1px solid rgba(0,0,0,0.1); border-radius:6px; font-size:14px; box-sizing:border-box;">
+              <div class="accordion-body" style="display: block; margin-top: 10px;">
+                <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+                  <input id="routeFrom" placeholder="From location..." class="planner-input">
+                  <input id="routeTo" placeholder="To location..." class="planner-input">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button class="ui-btn btn-blue action-btn" data-action="find-route" style="flex: 4;">🔍 Find Best Route</button>
+                  <button class="ui-btn btn-gray action-btn" data-action="add-stop" aria-label="Add stop" style="flex: 1; font-size: 18px; line-height: 1;">＋</button>
                 </div>
               </div>
-              <div class="routing-actions">
-                <button class="ui-btn btn-blue action-btn btn-route" data-action="find-route">🔍 Find Best Route</button>
-                <button class="ui-btn btn-gray action-btn btn-add-stop" data-action="add-stop" aria-label="Add stop">＋</button>
-              </div>
             </div>
+            <div id="routing-container" style="display:none;"></div>
           </div>
         </section>
 
-        <!-- 2) Route Comparison (Estimated) -->
         <section class="panel-section" id="panel-route-compare">
-          <div id="route-compare-card" class="hud-panel" style="display: block; min-width: unset;">
-            <div style="font-weight:700;margin-bottom:6px">🧭 Transit Options</div>
-            <div id="route-compare-body">
+          <div id="route-compare-card" class="hud-panel accordion-panel">
+            <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+              <div style="font-weight:700;">🗺️ Transit Options</div>
+              <span class="accordion-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+            </div>
+            <div class="accordion-body" id="route-compare-body" style="display: block; margin-top: 10px;">
               <div class="placeholder-text">Enter a destination to see live bus options.</div>
             </div>
           </div>
@@ -1399,76 +1354,80 @@
 
       <div id="content-tickets" class="tab-content">
         <section class="panel-section" id="panel-directory">
-          <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Active Routes</div>
-          <button class="ui-btn btn-blue" style="width: 100%; margin-bottom: 12px;" onclick="window.Dashboard.refreshDirectory();">🔄 Refresh Directory</button>
-          <div id="live-directory-list" style="display: flex; flex-direction: column; gap: 10px;">
-            <div class="placeholder-text">Click Refresh to load active fleet...</div>
+          <div class="hud-panel accordion-panel">
+            <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+              <div style="font-weight:700;">📋 Active Routes</div>
+              <span class="accordion-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+            </div>
+            <div class="accordion-body" style="display: block; margin-top: 10px;">
+              <button class="ui-btn btn-blue" style="width: 100%; margin-bottom: 12px;" onclick="window.Dashboard.refreshDirectory();">🔄 Refresh Directory</button>
+              <div id="live-directory-list" style="display: flex; flex-direction: column; gap: 10px;">
+                <div class="placeholder-text">Click Refresh to load active fleet...</div>
+              </div>
+            </div>
           </div>
         </section>
       </div>
 
       <div id="content-analytics" class="tab-content">
         <section class="panel-section" id="panel-charts">
-          <div style="font-size: 12px; font-weight: 700; color: rgba(0,0,0,0.6); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Live Fleet Telemetry</div>
-          
-          <div class="hud-panel" style="padding: 10px; background: #fff;">
-            <div style="font-size: 11px; font-weight: bold; color: #888; margin-bottom: 5px;">Average Fleet Speed (km/h)</div>
-            <div style="position: relative; height: 160px; width: 100%;">
-              <canvas id="fleetSpeedChart"></canvas>
+          <div class="hud-panel accordion-panel">
+            <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+              <div style="font-weight:700;">📈 Live Fleet Telemetry</div>
+              <span class="accordion-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
             </div>
-          </div>
-
-          <div class="hud-panel" style="padding: 15px 10px; margin-top: 12px; display: flex; justify-content: space-around; background: #fff;">
-            <div style="text-align: center;">
-              <div id="stat-active-buses" style="font-size: 28px; font-weight: 900; color: var(--accent-color);">0</div>
-              <div style="font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase;">Active Buses</div>
-            </div>
-            <div style="width: 1px; background: #eee;"></div>
-            <div style="text-align: center;">
-              <div id="stat-avg-pax" style="font-size: 28px; font-weight: 900; color: #10b981;">0</div>
-              <div style="font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase;">Avg Passengers</div>
-            </div>
-          </div>
-
-          <!-- Route Occupancy Analysis -->
-          <div class="hud-panel" style="padding: 10px; background: #fff; margin-top: 12px;">
-            <div style="font-size: 11px; font-weight: bold; color: #888; margin-bottom: 5px;">Route-wise Avg Occupancy</div>
-            <div style="position: relative; height: 180px; width: 100%;">
-              <canvas id="routeOccupancyChart"></canvas>
-            </div>
-          </div>
-
-          <!-- Fleet Congestion Status -->
-          <div class="hud-panel" style="padding: 10px; background: #fff; margin-top: 12px;">
-            <div style="font-size: 11px; font-weight: bold; color: #888; margin-bottom: 5px;">Fleet Occupancy Status</div>
-            <div style="position: relative; height: 180px; width: 100%;">
-              <canvas id="fleetStatusChart"></canvas>
+            <div class="accordion-body" style="display: block; margin-top: 10px;">
+              <div style="background: #fff; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05);">
+                <div style="font-size: 11px; font-weight: bold; color: #888; margin-bottom: 5px;">Average Fleet Speed (km/h)</div>
+                <div style="position: relative; height: 160px; width: 100%;"><canvas id="fleetSpeedChart"></canvas></div>
+              </div>
+              <div style="background: #fff; padding: 15px 10px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-around; border: 1px solid rgba(0,0,0,0.05);">
+                <div style="text-align: center;">
+                  <div id="stat-active-buses" style="font-size: 28px; font-weight: 900; color: var(--accent-color);">0</div>
+                  <div style="font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase;">Active Buses</div>
+                </div>
+                <div style="width: 1px; background: #eee;"></div>
+                <div style="text-align: center;">
+                  <div id="stat-avg-pax" style="font-size: 28px; font-weight: 900; color: #10b981;">0</div>
+                  <div style="font-size: 10px; font-weight: bold; color: #888; text-transform: uppercase;">Avg Passengers</div>
+                </div>
+              </div>
+              <div style="background: #fff; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid rgba(0,0,0,0.05);">
+                <div style="font-size: 11px; font-weight: bold; color: #888; margin-bottom: 5px;">Route-wise Avg Occupancy</div>
+                <div style="position: relative; height: 180px; width: 100%;"><canvas id="routeOccupancyChart"></canvas></div>
+              </div>
+              <div style="background: #fff; padding: 10px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.05);">
+                <div style="font-size: 11px; font-weight: bold; color: #888; margin-bottom: 5px;">Fleet Occupancy Status</div>
+                <div style="position: relative; height: 180px; width: 100%;"><canvas id="fleetStatusChart"></canvas></div>
+              </div>
             </div>
           </div>
         </section>
       </div>
 
-      <!-- Universal Tracking Panels (visible across all tabs) -->
-      <!-- 2) Stop Summary Card -->
       <section class="panel-section" id="panel-stop-summary">
-        <div id="stop-summary-card" class="hud-panel" style="display: block; min-width: unset;">
-          <div id="stop-summary-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+        <div class="hud-panel accordion-panel" id="stop-summary-card">
+          <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
             <div style="font-weight:700;">📍 Stop Summary</div>
-            <span class="stop-summary-chevron" style="font-size: 12px; opacity: 0.5;">▶</span>
+            <span class="accordion-chevron stop-summary-chevron" style="font-size: 12px; opacity: 0.5;">▶</span>
           </div>
-          
-          <div id="stop-summary-body" style="display: none; margin-top: 10px;">
+          <div class="accordion-body" id="stop-summary-body" style="display: none; margin-top: 10px;">
+            
+            <div style="display:flex; gap: 6px; margin-bottom:12px;">
+              <select id="stopSelectMenu" style="flex:1; box-sizing:border-box; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px; background:var(--panel-bg-solid); color:var(--text-color);">
+                <option value="">-- Select a Transit Stop --</option>
+              </select>
+              <button id="btn-summary-nearest" class="ui-btn btn-blue" style="padding: 8px 12px;" title="Find Nearest Stop">📍</button>
+            </div>
+            
             <div style="font-size:13px;line-height:1.4">
-              <div><b id="stop-name">Select a stop on map</b></div>
-              <div>Best Bus: <span id="stop-best-bus">—</span></div>
-              <div>Arrival: <span id="stop-best-eta">--</span></div>
+              <div>Best Bus: <strong id="stop-best-bus" style="color:var(--accent-color);">—</strong></div>
+              <div>Arrival: <strong id="stop-best-eta" style="color:#f59e0b;">--</strong></div>
               <div>Confidence: <span id="stop-confidence">—</span></div>
-
-              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ddd;">
+              <div style="margin-top: 12px; padding-top: 8px; border-top: 1px dashed #ddd;">
                 <label style="font-size: 11px; font-weight: 600;">Alert me when</label>
                 <div style="display: flex; gap: 5px; margin-top: 4px;">
-                  <input type="number" id="alertThreshold" value="5" min="1" max="30"
-                         style="width: 50px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
+                  <input type="number" id="alertThreshold" value="5" min="1" max="30" style="width: 50px; padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
                   <span style="font-size: 11px; align-self: center;">mins away</span>
                 </div>
               </div>
@@ -1477,29 +1436,38 @@
         </div>
       </section>
 
-      <!-- 3) Monitoring Status HUD -->
       <section class="panel-section" id="panel-monitor">
-        <div id="monitor-hud" class="hud-panel" style="display: block; min-width: unset;">
-          <div id="monitor-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+        <div class="hud-panel accordion-panel" id="monitor-hud">
+          <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
             <div style="font-weight:700;">🔔 Monitoring Status</div>
-            <span class="monitor-chevron" style="font-size: 12px; opacity: 0.5;">▶</span>
+            <span class="accordion-chevron monitor-chevron" style="font-size: 12px; opacity: 0.5;">▶</span>
           </div>
-          
-          <div id="monitor-body-wrap" style="display: none; margin-top: 10px;">
-            <div id="monitor-body">
+          <div class="accordion-body" id="monitor-body-wrap" style="display: none; margin-top: 10px;">
+            
+            <div id="monitor-setup" style="display: block;">
+               <div style="font-size: 11px; color: #666; margin-bottom: 6px;">Select a bus bound for this stop:</div>
+               <select id="monitorBusSelect" style="width:100%; box-sizing:border-box; padding:8px; border-radius:6px; border:1px solid #ccc; margin-bottom:8px; font-size:13px; background:var(--panel-bg-solid); color:var(--text-color);">
+                 <option value="">-- Select Stop First --</option>
+               </select>
+               <button id="startMonitorBtn" class="ui-btn btn-indigo" style="width:100%;">🔔 Start Monitoring</button>
             </div>
+
+            <div id="monitor-active" style="display: none; border-top: 1px dashed #ddd; padding-top: 8px; margin-top: 8px;">
+               <div id="monitor-body"></div>
+               <button id="stopMonitorBtn" class="ui-btn btn-gray" style="width:100%; margin-top: 8px;">🔕 Stop Monitoring</button>
+            </div>
+
           </div>
         </div>
       </section>
 
-      <!-- 4) Occupancy Legend -->
       <section class="panel-section" id="panel-legend">
-        <div class="hud-panel legend" style="margin-top:10px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="legend-toggle">
-            <b>📊 Occupancy</b>
-            <span class="legend-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+        <div class="hud-panel accordion-panel">
+          <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+            <div style="font-weight:700;">📊 Occupancy</div>
+            <span class="accordion-chevron" style="font-size: 12px; opacity: 0.5;">▶</span>
           </div>
-          <div id="legend-body" style="display: none; margin-top: 6px;">
+          <div class="accordion-body" style="display: none; margin-top: 10px;">
             <div class="legend-item"><div class="color-box" style="background:#06b6d4"></div> Seats Avail</div>
             <div class="legend-item"><div class="color-box" style="background:#3b82f6"></div> Standing</div>
             <div class="legend-item"><div class="color-box" style="background:#4c1d95"></div> Packed</div>
@@ -1508,17 +1476,16 @@
         </div>
       </section>
 
-      <!-- 5) Traffic Heatmap -->
       <section class="panel-section" id="panel-heatmap">
-        <div class="hud-panel legend">
-          <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;" id="heatmap-toggle">
-            <b>🧯 Traffic Heatmap</b>
+        <div class="hud-panel accordion-panel">
+          <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+            <div style="font-weight:700;">🧯 Traffic Heatmap</div>
             <div style="display:flex; align-items:center; gap:6px;">
               <button id="heatmap-visibility" class="ui-btn btn-green" data-action="toggle-heatmap" style="padding:4px 8px; font-size:12px;">On</button>
-              <span class="heatmap-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
+              <span class="accordion-chevron" style="font-size: 12px; opacity: 0.5;">▼</span>
             </div>
           </div>
-          <div id="heatmap-body" style="display: block; margin-top: 6px;">
+          <div class="accordion-body" style="display: block; margin-top: 10px;">
             <div class="legend-item"><div class="color-box" style="background:#16a34a"></div> Smooth (&gt;25 km/h)</div>
             <div class="legend-item"><div class="color-box" style="background:#f97316"></div> Slow (15-25 km/h)</div>
             <div class="legend-item"><div class="color-box" style="background:#dc2626"></div> Heavy (&lt;15 km/h)</div>
@@ -1527,8 +1494,42 @@
         </div>
       </section>
 
-    </div>
+      <section class="panel-section" id="panel-system">
+        <div class="hud-panel accordion-panel">
+          <div class="accordion-toggle" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;">
+            <div style="font-weight:700;">⚙️ Actions</div>
+            <span class="accordion-chevron" style="font-size: 12px; opacity: 0.5;">▶</span>
+          </div>
+          <div class="accordion-body controls" style="display: none; margin-top: 10px;">
+            <div style="display:flex; gap:6px; flex-direction:column; width: 100%;">
+              <button class="ui-btn btn-blue" data-action="toggle-theme" style="width: 100%;">🌙 Night</button>
+              <button id="focusBtn" class="ui-btn btn-blue" data-action="toggle-focus" style="width: 100%;">🎯 Focus</button>
+              <button class="ui-btn btn-gray" data-action="logout" style="width: 100%; border:1px solid #ccc; color:#333;">🚪 Logout</button>
+              <button class="ui-btn btn-blue" data-action="add-bus" style="width: 100%; display:none;">➕ Random Bus</button>
+              
+              <div id="admin-extended-controls" style="display:none; margin-top: 8px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,0.1);">
+                <div style="font-size: 11px; font-weight: 700; color: #f97316; margin-bottom: 8px; text-transform: uppercase;">🛠️ Advanced Admin</div>
+                <select id="admin-route-select" style="width:100%; margin-bottom:8px; padding:8px; border-radius:6px; border:1px solid #ccc; font-size:13px;">
+                  <option value="RANDOM">Random Route</option>
+                  <option value="ROUTE_1">Route 1 (VIT ⇄ Old Bus Stand)</option>
+                  <option value="ROUTE_2">Route 2 (Bagayam)</option>
+                  <option value="ROUTE_3">Route 3 (Sathuvachari)</option>
+                  <option value="ROUTE_4">Route 4 (Shenbakkam)</option>
+                  <option value="ROUTE_5">Route 5 (Katpadi Local)</option>
+                </select>
+                <div style="display:flex; gap:6px;">
+                  <button class="ui-btn btn-green" data-action="spawn-route-bus" style="flex:1;">🚌 Spawn</button>
+                  <button class="ui-btn btn-gray" data-action="clear-sims" style="flex:1; color:#dc2626; border:1px solid #dc2626; background:transparent;">🧹 Stop Sims</button>
+                </div>
+                <button class="ui-btn btn-indigo" data-action="broadcast-alert" style="width:100%; margin-top:6px;">📢 Broadcast Alert</button>
+              </div>
+              <button class="ui-btn btn-red" data-action="reset-system" style="width: 100%; display:none; margin-top:10px;">☢️ Hard Reset</button>
+            </div>
+          </div>
+        </div>
+      </section>
 
+    </div>
   </aside>
 
   <!-- Global suggestions dropdown (moved outside transformed side-panel to avoid clipping) -->
@@ -2337,6 +2338,31 @@
     });
   }
 
+  // Initialize the new Stop Summary Dropdown Menu
+  (function initStopMenu() {
+    const stopSelectMenu = document.getElementById('stopSelectMenu');
+    if(stopSelectMenu && typeof STOP_DATA !== 'undefined') {
+      const sortedStops = [...STOP_DATA].sort((a,b) => a.name.localeCompare(b.name));
+      sortedStops.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.stop_id;
+        opt.textContent = s.name;
+        stopSelectMenu.appendChild(opt);
+      });
+
+      stopSelectMenu.addEventListener('change', (e) => {
+        const stopId = e.target.value;
+        if(stopId) {
+          selectStopById(stopId);
+        } else {
+          state.selectedStop = null;
+          clearStopHighlight();
+          updateStopSummaryCard();
+        }
+      });
+    }
+  })();
+
   // --- Arrival ring helpers and recommendation helpers ---
   function showArrivalRing(radius, color, key){
     if(!state.selectedStop) return null;
@@ -2552,6 +2578,9 @@
     const stop = STOP_DATA.find(s => s.stop_id === id) || null;
     state.selectedStop = stop;
     if(state.selectedStop) state.userSelectedStopTime = Date.now();
+    // Sync the dropdown menu with the map selection
+    const stopSelectMenu = document.getElementById('stopSelectMenu');
+    if (stopSelectMenu && stop) stopSelectMenu.value = stop.stop_id;
     // Populate the search input with friendly name
     if(_stopSearchEl && state.selectedStop) _stopSearchEl.value = state.selectedStop.name;
     // Hide suggestion list
@@ -2566,6 +2595,7 @@
       else { state.recommendedBusId = null; }
       highlightStopMarker(state.selectedStop.stop_id);
       updateStopSummaryCard();
+      window.populateMonitorDropdown();
       // Auto-expand Stop Summary when user selects a stop
       document.getElementById('stop-summary-body').style.display = 'block';
       document.querySelector('.stop-summary-chevron').textContent = '▼';
@@ -2575,7 +2605,6 @@
       }
     } else {
       state.recommendedBusId = null;
-      const c = document.getElementById('stop-summary-card'); if(c) c.style.display = 'none';
     }
   }
 
@@ -3242,7 +3271,7 @@
     }
   });
 
-  // Nearest Stop Button
+  // Nearest Stop Button (Fleet Command Panel)
   document.getElementById('btn-nearest-stop')?.addEventListener('click', () => {
     if (!state.userMarker || !state.userMarker.getLatLng) {
       UI.toast('⏳ Please wait for GPS location', 'info');
@@ -3266,40 +3295,45 @@
     }
   });
 
-  /* Stop selection & monitor controls handled via selectStopById() and monitor button */
-
-  document.getElementById('monitorStopBtn').addEventListener('click', () => {
-    const selBus = document.getElementById('busSelect').value;
-    if(!state.selectedStop) return alert('Please select a stop first.');
-    if(selBus === 'ALL') return alert('Please select a specific bus to monitor from the bus dropdown.');
-    state.monitoredBusId = selBus;
-    state.monitorEnabled = !state.monitorEnabled;
-    document.getElementById('monitorStopBtn').textContent = state.monitorEnabled ? '🔕 Stop Monitoring' : '🔔 Monitor';
-    if(state.monitorEnabled){
-      // initialize alert state for this bus
-      // clear old rings then initialize alert state for this bus
-      clearArrivalRings();
-      state.stopAlertStates.set(state.monitoredBusId, { notified_1000:false, notified_300:false, notified_100:false, paused:false, lastDistance:null });
-      alert(`Monitoring ${state.monitoredBusId} → ${state.selectedStop.name}`);
-      updateMonitorHUD();
-      // Auto-expand Monitoring Status when user starts monitoring
-      document.getElementById('monitor-body-wrap').style.display = 'block';
-      document.querySelector('.monitor-chevron').textContent = '▼';
-      
-      // AUTO-COLLAPSE: Intent-aware behavior - collapse Route Planner when monitoring is active
-      const routingWrapper = document.getElementById('routing-wrapper');
-      if(routingWrapper && routingWrapper.classList.contains('open')){
-        routingWrapper.classList.remove('open');
-        map.keyboard.enable();
-      }
-    } else {
-      // stop monitoring: clear memory and visuals
-      state.stopAlertStates.delete(state.monitoredBusId);
-      clearArrivalRings();
-      state.monitoredBusId = null;
-      alert('Stopped monitoring');
-      updateMonitorHUD();
+  // Nearest Stop Button (Stop Summary Panel Inline)
+  document.getElementById('btn-summary-nearest')?.addEventListener('click', () => {
+    if (!state.userMarker || !state.userMarker.getLatLng) return UI.toast('⏳ Waiting for GPS...', 'info');
+    const nearest = findNearestStop(state.userMarker.getLatLng());
+    if (nearest && nearest.stop) {
+      selectStopById(nearest.stop.stop_id);
+      UI.toast(`🚏 ${nearest.stop.name} Selected`, 'success');
     }
+  });
+
+  /* Stop selection & monitor controls - Intelligent dual-state interface */
+
+  document.getElementById('startMonitorBtn')?.addEventListener('click', () => {
+    const selBus = document.getElementById('monitorBusSelect').value;
+    if(!selBus) return alert('Please select a bus from the dropdown to monitor.');
+    
+    state.monitoredBusId = selBus;
+    state.monitorEnabled = true;
+    
+    document.getElementById('monitor-setup').style.display = 'none';
+    document.getElementById('monitor-active').style.display = 'block';
+    
+    clearArrivalRings();
+    state.stopAlertStates.set(state.monitoredBusId, { notified_1000:false, notified_300:false, notified_100:false, paused:false, lastDistance:null });
+    UI.toast(`Monitoring ${state.monitoredBusId} ➔ ${state.selectedStop.name}`, 'success');
+    updateMonitorHUD();
+  });
+
+  document.getElementById('stopMonitorBtn')?.addEventListener('click', () => {
+    state.monitorEnabled = false;
+    state.stopAlertStates.delete(state.monitoredBusId);
+    clearArrivalRings();
+    state.monitoredBusId = null;
+    
+    document.getElementById('monitor-setup').style.display = 'block';
+    document.getElementById('monitor-active').style.display = 'none';
+    
+    UI.toast('Stopped monitoring', 'info');
+    updateMonitorHUD();
   });
 
   /* Logic & Helpers */
@@ -3561,35 +3595,13 @@
     else { el.style.color = '#dc2626'; text.textContent = 'Offline'; }
   }
 
-  /* ================= STOP-CENTRIC ETA SUMMARY (FEATURE 3) ================= */
+  /* ================= STOP-CENTRIC ETA SUMMARY ================= */
   function updateStopSummaryCard(){
-    const card = document.getElementById('stop-summary-card');
-    if(!card) return;
-
-    const busSelect = document.getElementById('busSelect');
-    const selectedBus = busSelect ? busSelect.value : 'ALL';
-    if(selectedBus === 'ALL'){
-      card.style.display = 'block';
-      const stopNameEl = document.getElementById('stop-name');
-      const stopBestBusEl = document.getElementById('stop-best-bus');
-      const stopBestEtaEl = document.getElementById('stop-best-eta');
-      const stopConfidenceEl = document.getElementById('stop-confidence');
-      if(stopNameEl) stopNameEl.innerHTML = '<div class="placeholder-text">Ready to Monitor. Select a bus to see arrival details.</div>';
-      if(stopBestBusEl) stopBestBusEl.textContent = '--';
-      if(stopBestEtaEl) stopBestEtaEl.textContent = '--';
-      if(stopConfidenceEl) stopConfidenceEl.textContent = '--';
-      return;
-    }
-    
-    // Get card body container
-    const stopNameEl = document.getElementById('stop-name');
     const stopBestBusEl = document.getElementById('stop-best-bus');
     const stopBestEtaEl = document.getElementById('stop-best-eta');
     const stopConfidenceEl = document.getElementById('stop-confidence');
     
     if(!state.selectedStop){ 
-      card.style.display = 'block'; // Keep visible!
-      if(stopNameEl) stopNameEl.innerHTML = '<div class="placeholder-text">📍 Click a stop on the map to see the best approaching bus.</div>';
       if(stopBestBusEl) stopBestBusEl.textContent = '--';
       if(stopBestEtaEl) stopBestEtaEl.textContent = '--';
       if(stopConfidenceEl) stopConfidenceEl.textContent = '--';
@@ -3608,28 +3620,16 @@
     });
 
     if(!best){ 
-      card.style.display = 'block';
-      if(stopNameEl) stopNameEl.innerHTML = `<div class="placeholder-text">No active buses found near ${state.selectedStop.name}</div>`;
-      if(stopBestBusEl) stopBestBusEl.textContent = '--';
+      if(stopBestBusEl) stopBestBusEl.textContent = 'None Active';
       if(stopBestEtaEl) stopBestEtaEl.textContent = '--';
       if(stopConfidenceEl) stopConfidenceEl.textContent = '--';
       return; 
     }
 
-    if(stopNameEl) stopNameEl.textContent = state.selectedStop.name;
     if(stopBestBusEl) stopBestBusEl.textContent = best.busId;
     if(stopBestEtaEl) stopBestEtaEl.textContent = `~${best.eta} min`;
     const confLevel = calculateConfidence(null, best.age);
-    const confText = confLevel === 'high' ? 'High' : 'Low';
-    if(stopConfidenceEl) stopConfidenceEl.textContent = confText;
-    card.style.display = 'block';
-    // Add subtle auto-select highlight when we recently auto-selected
-    if(state.lastAutoSelectTime && (Date.now() - state.lastAutoSelectTime) < 5000){
-      card.classList.add('auto-highlight');
-      setTimeout(() => card.classList.remove('auto-highlight'), 5000);
-    } else {
-      card.classList.remove('auto-highlight');
-    }
+    if(stopConfidenceEl) stopConfidenceEl.textContent = confLevel === 'high' ? 'High' : 'Low';
   }
 
   /* ================= SMART TRANSIT ROUTING ENGINE ================= */
@@ -3721,7 +3721,8 @@
         if (typeof b.latitude !== 'number' || typeof b.longitude !== 'number') return false;
         
         const age = now - new Date(b.last_updated).getTime();
-        const matchesRoute = routeNamesToFetch.includes(b.route_name);
+        const busRoute = b.route_name || b.route_id || null;
+        const matchesRoute = busRoute ? routeNamesToFetch.includes(busRoute) : false;
         const matchesStop = targetStops.includes(b.current_stop_id);
         return age < THRESHOLDS.OFFLINE_MS && (matchesRoute || matchesStop);
       });
@@ -3841,7 +3842,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
               <div>
                 <div style="font-weight: 800; font-size: 17px; color: #1e293b;">BUS ${b.bus_id}</div>
-                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Route: ${b.route_name.replace('_', ' ')}</div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Route: ${(b.route_name || b.route_id || 'ROUTE').replace('_', ' ')}</div>
               </div>
               <div class="occupancy-badge ${b.occClass}" style="margin:0;">${b.occ}% Full</div>
             </div>
@@ -4148,6 +4149,7 @@
         e.pos = {lat: bus.latitude, lon: bus.longitude}; 
         e.heading = heading; 
         e.lastUpdate = now;
+        e.routeName = bus.route_name || bus.route_id || e.routeName;
         
         // Track last stop ID for segment detection
         if(bus.current_stop_id && bus.current_stop_id !== e.lastStopId) {
@@ -4183,7 +4185,8 @@
           heading: 0, 
           lastUpdate: now,
           computedSpeed: null,
-          lastStopId: bus.current_stop_id || null 
+          lastStopId: bus.current_stop_id || null,
+          routeName: bus.route_name || bus.route_id || 'ROUTE_1'
         });
 
         // Initial alert check
@@ -4205,6 +4208,9 @@
 
     // Monitor stop ETA alerts against user-defined lead time
     processStopETAAlerts();
+    
+    // Refresh monitoring dropdown with latest fleet data
+    window.populateMonitorDropdown();
   }
 
   /**
@@ -4551,7 +4557,7 @@
         totalPax += paxCount;
         
         // Track occupancy by route
-        const routeName = (bus.route_name || 'R1').replace('_', '');
+        const routeName = (bus.route_name || bus.route_id || 'R1').replace('_', '');
         if (routeOccupancy[routeName]) {
           routeOccupancy[routeName].push(paxCount);
         }
@@ -4710,6 +4716,42 @@
     setTimeout(() => modal.classList.add('active'), 10); 
   };
 
+  /* ================= DYNAMIC MONITOR DROPDOWN POPULATION ================= */
+  window.populateMonitorDropdown = function() {
+    const monitorSelect = document.getElementById('monitorBusSelect');
+    if (!monitorSelect) return;
+
+    if (!state.selectedStop) {
+        monitorSelect.innerHTML = '<option value="">-- Select a Stop First --</option>';
+        monitorSelect.disabled = true;
+        return;
+    }
+
+    // Identify which routes service this exact stop
+    const validRoutes = Object.keys(BUS_ROUTES).filter(r => BUS_ROUTES[r].includes(state.selectedStop.stop_id));
+    
+    let optionsHtml = '';
+    let busCount = 0;
+    
+    state.buses.forEach((entry, busId) => {
+        if ((Date.now() - entry.lastUpdate) < THRESHOLDS.OFFLINE_MS) {
+            // Check if the bus is operating on a valid route for this stop
+            if (entry.routeName && validRoutes.includes(entry.routeName)) {
+                optionsHtml += `<option value="${busId}">${busId} (${entry.routeName.replace('_', ' ')})</option>`;
+                busCount++;
+            }
+        }
+    });
+
+    if (busCount === 0) {
+        monitorSelect.innerHTML = '<option value="">-- No Active Buses En Route --</option>';
+        monitorSelect.disabled = true;
+    } else {
+        monitorSelect.innerHTML = optionsHtml;
+        monitorSelect.disabled = false;
+    }
+  };
+
   /* ================= DASHBOARD OBJECT (NATIVE TABS) ================= */
   window.Dashboard = {
     tickets: [],
@@ -4787,7 +4829,7 @@
                 if(stopObj) nextStop = stopObj.name;
 
                 // Map the route code to the human-readable string
-                const routeTitle = routeNamesMap[b.route_name] || "Smart Transit Route";
+                const routeTitle = routeNamesMap[b.route_name || b.route_id] || "Smart Transit Route";
 
                 return `
                   <div class="ticket-container" style="border-left: 4px solid #2563eb; padding: 16px;">
@@ -4900,94 +4942,27 @@
     else setOpen(false);
   })();
 
-  /* Occupancy Legend Toggle */
+  /* Universal Accordion UI Logic */
   (function(){
-    const toggle = document.getElementById('legend-toggle');
-    const body = document.getElementById('legend-body');
-    const chevron = document.querySelector('.legend-chevron');
-    
-    if(!toggle || !body || !chevron) return;
-    
-    // Start collapsed by default
-    body.style.display = 'none';
-    chevron.textContent = '▶';
-    
-    toggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isOpen = body.style.display !== 'none';
-      if(isOpen){
-        body.style.display = 'none';
-        chevron.textContent = '▶';
-      } else {
-        body.style.display = 'block';
-        chevron.textContent = '▼';
-      }
-    });
-  })();
-
-  /* Traffic Heatmap Legend Toggle */
-  (function(){
-    const toggle = document.getElementById('heatmap-toggle');
-    const body = document.getElementById('heatmap-body');
-    const chevron = document.querySelector('.heatmap-chevron');
-
-    if(!toggle || !body || !chevron) return;
-
-    // Start expanded by default
-    body.style.display = 'block';
-    chevron.textContent = '▼';
-
-    toggle.addEventListener('click', (e) => {
-      if (e.target && e.target.closest && e.target.closest('[data-action="toggle-heatmap"]')) return;
-      e.stopPropagation();
-      const isOpen = body.style.display !== 'none';
-      if(isOpen){
-        body.style.display = 'none';
-        chevron.textContent = '▶';
-      } else {
-        body.style.display = 'block';
-        chevron.textContent = '▼';
-      }
-    });
-  })();
-
-  /* Collapsible Menus for Stop Summary and Monitor HUD */
-  (function(){
-    // Stop Summary Toggle
-    const stopToggle = document.getElementById('stop-summary-toggle');
-    const stopBody = document.getElementById('stop-summary-body');
-    const stopChevron = document.querySelector('.stop-summary-chevron');
-    
-    if(stopToggle && stopBody && stopChevron) {
-      stopToggle.addEventListener('click', (e) => {
+    const toggles = document.querySelectorAll('.accordion-toggle');
+    toggles.forEach(toggle => {
+      toggle.addEventListener('click', (e) => {
+        // Ignore clicks if they happen on an embedded button (like Heatmap On/Off)
+        if (e.target.closest('button')) return;
+        
         e.stopPropagation();
-        if(stopBody.style.display !== 'none'){
-          stopBody.style.display = 'none';
-          stopChevron.textContent = '▶';
-        } else {
-          stopBody.style.display = 'block';
-          stopChevron.textContent = '▼';
+        const body = toggle.nextElementSibling;
+        const chevron = toggle.querySelector('.accordion-chevron');
+        
+        if (body && chevron) {
+          const isOpen = body.style.display !== 'none';
+          body.style.display = isOpen ? 'none' : 'block';
+          chevron.textContent = isOpen ? '▶' : '▼';
+          // Trigger a map resize to prevent rendering gray map tiles when panel heights change
+          setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
         }
       });
-    }
-
-    // Monitor Status Toggle
-    const monitorToggle = document.getElementById('monitor-toggle');
-    const monitorBodyWrap = document.getElementById('monitor-body-wrap');
-    const monitorChevron = document.querySelector('.monitor-chevron');
-
-    if(monitorToggle && monitorBodyWrap && monitorChevron) {
-      monitorToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if(monitorBodyWrap.style.display !== 'none'){
-          monitorBodyWrap.style.display = 'none';
-          monitorChevron.textContent = '▶';
-        } else {
-          monitorBodyWrap.style.display = 'block';
-          monitorChevron.textContent = '▼';
-        }
-      });
-    }
+    });
   })();
   </script>
 
