@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5001';
 
 /* Health / lifecycle thresholds (ms) */
 const STALE_MS = 60 * 1000; // 60 seconds => STALE (aligned with frontend)
@@ -524,6 +525,166 @@ app.get("/api/user/tickets", async (req, res) => {
   } catch (err) {
     console.error("User tickets fetch failed:", err.message);
     res.status(500).json({ error: "Failed to fetch user tickets" });
+  }
+});
+
+/* =========================================================
+   MATHEMATICAL ETA FALLBACK (Fault-Tolerant Design)
+   =========================================================
+   Purpose: Provides deterministic ETA when ML service is unavailable
+   Method: Simple physics-based calculation using average historical speed
+*/
+function computeMathematicalETA(segment_distance_m, seg_speed_last_1, seg_speed_last_3_mean, seg_speed_last_6_mean) {
+  // Use weighted average of recent speeds (favoring more recent data)
+  const weight_1 = 0.5;
+  const weight_3 = 0.3;
+  const weight_6 = 0.2;
+  
+  const estimatedSpeedKmh = 
+    (seg_speed_last_1 * weight_1) + 
+    (seg_speed_last_3_mean * weight_3) + 
+    (seg_speed_last_6_mean * weight_6);
+  
+  // Convert to m/s
+  const speedMps = estimatedSpeedKmh * (1000.0 / 3600.0);
+  
+  // Calculate ETA
+  const etaSeconds = segment_distance_m / speedMps;
+  const etaMinutes = etaSeconds / 60.0;
+  
+  return {
+    predicted_speed_kmh: Math.round(estimatedSpeedKmh * 100) / 100,
+    predicted_eta_seconds: Math.round(etaSeconds * 100) / 100,
+    predicted_eta_minutes: Math.round(etaMinutes * 100) / 100
+  };
+}
+
+/* =========================================================
+   ML-POWERED ETA PREDICTION (Phase 4 Integration)
+   ========================================================= */
+app.post("/api/ml-eta", async (req, res) => {
+  const {
+    segment_distance_m,
+    hour_of_day,
+    is_weekend,
+    seg_speed_last_1,
+    seg_speed_last_3_mean,
+    seg_speed_last_6_mean,
+    seg_speed_std_6
+  } = req.body;
+
+  // Validate required fields
+  if (
+    segment_distance_m === undefined ||
+    hour_of_day === undefined ||
+    is_weekend === undefined ||
+    seg_speed_last_1 === undefined ||
+    seg_speed_last_3_mean === undefined ||
+    seg_speed_last_6_mean === undefined ||
+    seg_speed_std_6 === undefined
+  ) {
+    return res.status(400).json({
+      error: "Missing required fields",
+      required: [
+        "segment_distance_m",
+        "hour_of_day",
+        "is_weekend",
+        "seg_speed_last_1",
+        "seg_speed_last_3_mean",
+        "seg_speed_last_6_mean",
+        "seg_speed_std_6"
+      ]
+    });
+  }
+
+  try {
+    // STEP 2: Latency Logging (for conference paper metrics)
+    const startTime = Date.now();
+    
+    // Call Flask ML service using environment-aware URL
+    const axios = require('axios');
+    const mlResponse = await axios.post(`${ML_SERVICE_URL}/predict`, {
+      segment_distance_m,
+      hour_of_day,
+      is_weekend,
+      seg_speed_last_1,
+      seg_speed_last_3_mean,
+      seg_speed_last_6_mean,
+      seg_speed_std_6
+    }, {
+      timeout: 5000, // 5 second timeout
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const latency = Date.now() - startTime;
+    console.log(`✓ ML inference latency: ${latency} ms`);
+
+    // Return ML prediction result with metadata
+    res.json({
+      mode: "ml",
+      ...mlResponse.data,
+      inference_time_ms: latency
+    });
+
+  } catch (err) {
+    console.error("ML-ETA prediction error:", err.message);
+    
+    // STEP 1: Fault-Tolerant Fallback (Conference-Level Robustness)
+    if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+      console.warn("⚠️ ML service unavailable. Falling back to mathematical ETA.");
+      
+      const fallbackResult = computeMathematicalETA(
+        segment_distance_m,
+        seg_speed_last_1,
+        seg_speed_last_3_mean,
+        seg_speed_last_6_mean
+      );
+      
+      return res.json({
+        mode: "fallback",
+        method: "weighted_average",
+        ...fallbackResult,
+        warning: "ML service unavailable, using deterministic calculation"
+      });
+    }
+    
+    if (err.response) {
+      // ML service returned an error - still fallback gracefully
+      console.warn("⚠️ ML prediction failed. Falling back to mathematical ETA.");
+      
+      const fallbackResult = computeMathematicalETA(
+        segment_distance_m,
+        seg_speed_last_1,
+        seg_speed_last_3_mean,
+        seg_speed_last_6_mean
+      );
+      
+      return res.json({
+        mode: "fallback",
+        method: "weighted_average",
+        ...fallbackResult,
+        warning: "ML prediction error, using deterministic calculation"
+      });
+    }
+    
+    // Generic error - last resort fallback
+    console.warn("⚠️ Unexpected error. Falling back to mathematical ETA.");
+    
+    const fallbackResult = computeMathematicalETA(
+      segment_distance_m,
+      seg_speed_last_1,
+      seg_speed_last_3_mean,
+      seg_speed_last_6_mean
+    );
+    
+    res.json({
+      mode: "fallback",
+      method: "weighted_average",
+      ...fallbackResult,
+      warning: "System error, using deterministic calculation"
+    });
   }
 });
 

@@ -1,0 +1,365 @@
+#!/usr/bin/env python3
+
+"""
+ETA ML Pipeline - IEEE Research Mode
+Load trip_history_ml_ready.csv, preprocess, create rolling features, 
+train models, evaluate, and compare against baseline.
+"""
+
+import pandas as pd
+import numpy as np
+import warnings
+from datetime import datetime
+from scipy import stats
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+import xgboost as xgb
+
+warnings.filterwarnings('ignore')
+
+def load_data(filepath):
+    """Load and parse trip history CSV"""
+    print('\n╔════════════════════════════════════════════════════════════════╗')
+    print('║              ETA ML PIPELINE - PREPROCESSING                  ║')
+    print('╚════════════════════════════════════════════════════════════════╝\n')
+    
+    print(f'📖 Loading: {filepath}')
+    df = pd.read_csv(filepath)
+    print(f'   ✅ Loaded {len(df)} rows, {len(df.columns)} columns')
+    print(f'   Columns: {list(df.columns)}\n')
+    return df
+
+def preprocess_data(df):
+    """Preprocess: datetime, datetime features, missing values"""
+    print('🔧 PREPROCESSING')
+    print('─' * 64)
+    
+    # Parse timestamp
+    print('\n1️⃣  Parsing timestamp to datetime...')
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    print(f'   ✅ Timestamp range: {df["timestamp"].min()} to {df["timestamp"].max()}')
+    
+    # Sort by timestamp
+    print('\n2️⃣  Sorting by timestamp ascending...')
+    df = df.sort_values('timestamp').reset_index(drop=True)
+    print(f'   ✅ Sorted {len(df)} rows')
+    
+    # Check missing values before dropping
+    print('\n3️⃣  Checking for missing values...')
+    missing_before = df.isnull().sum().sum()
+    print(f'   Missing values: {missing_before}')
+    
+    # Drop rows with missing values
+    df = df.dropna()
+    missing_after = df.isnull().sum().sum()
+    rows_dropped = len(df) - len(df)  # Will be 0 after dropna if no missing
+    print(f'   ✅ After dropping: {len(df)} rows, {missing_after} missing values')
+    
+    # Create datetime features
+    print('\n4️⃣  Creating datetime features...')
+    df['is_weekend'] = df['timestamp'].dt.dayofweek.isin([5, 6]).astype(int)
+    
+    # Hour sine/cosine for circular encoding
+    hour_radians = 2 * np.pi * df['hour_of_day'] / 24
+    df['hour_sin'] = np.sin(hour_radians)
+    df['hour_cos'] = np.cos(hour_radians)
+    
+    print(f'   ✅ Created: is_weekend, hour_sin, hour_cos')
+    print(f'   Final shape: {df.shape}')
+    
+    return df.reset_index(drop=True)
+
+def create_rolling_features(df):
+    """Create rolling features per segment (with proper lag to avoid leakage)"""
+    print('\n5️⃣  Creating rolling features per segment...')
+    print('   (Using shift() for no future leakage)')
+    
+    rolling_features = ['seg_speed_last_1', 'seg_speed_last_3_mean', 
+                        'seg_speed_last_6_mean', 'seg_speed_std_6']
+    
+    for feature in rolling_features:
+        df[feature] = np.nan
+    
+    # Group by segment and create rolling features
+    segment_groups = df.groupby('segment')
+    print(f'   Processing {df["segment"].nunique()} segments...')
+    
+    for segment, group_df in segment_groups:
+        segment_indices = group_df.index
+        speeds = group_df['speed'].values
+        
+        # seg_speed_last_1: previous speed (shift by 1)
+        seg_speed_last_1 = pd.Series(speeds).shift(1).values
+        
+        # seg_speed_last_3_mean: mean of previous 3 speeds
+        seg_speed_last_3_mean = pd.Series(speeds).rolling(window=3, min_periods=1).mean().shift(1).values
+        
+        # seg_speed_last_6_mean: mean of previous 6 speeds
+        seg_speed_last_6_mean = pd.Series(speeds).rolling(window=6, min_periods=1).mean().shift(1).values
+        
+        # seg_speed_std_6: std of previous 6 speeds
+        seg_speed_std_6 = pd.Series(speeds).rolling(window=6, min_periods=1).std().shift(1).values
+        
+        df.loc[segment_indices, 'seg_speed_last_1'] = seg_speed_last_1
+        df.loc[segment_indices, 'seg_speed_last_3_mean'] = seg_speed_last_3_mean
+        df.loc[segment_indices, 'seg_speed_last_6_mean'] = seg_speed_last_6_mean
+        df.loc[segment_indices, 'seg_speed_std_6'] = seg_speed_std_6
+    
+    # Fill NaNs from rolling (first few rows per segment)
+    df['seg_speed_last_1'].fillna(df['speed'].mean(), inplace=True)
+    df['seg_speed_last_3_mean'].fillna(df['speed'].mean(), inplace=True)
+    df['seg_speed_last_6_mean'].fillna(df['speed'].mean(), inplace=True)
+    df['seg_speed_std_6'].fillna(0, inplace=True)
+    
+    print(f'   ✅ Created rolling features for {df["segment"].nunique()} segments')
+    return df
+
+def split_data(df):
+    """Chronological train/test split: 80% / 20%"""
+    print('\n6️⃣  Chronological train/test split (80/20)...')
+    
+    split_idx = int(len(df) * 0.8)
+    df_train = df.iloc[:split_idx].copy()
+    df_test = df.iloc[split_idx:].copy()
+    
+    print(f'   Train: {len(df_train)} rows ({len(df_train)/len(df)*100:.1f}%)')
+    print(f'   Test:  {len(df_test)} rows ({len(df_test)/len(df)*100:.1f}%)')
+    print(f'   Train timestamps: {df_train["timestamp"].min()} to {df_train["timestamp"].max()}')
+    print(f'   Test timestamps:  {df_test["timestamp"].min()} to {df_test["timestamp"].max()}')
+    
+    return df_train, df_test
+
+def prepare_features(df_train, df_test):
+    """Prepare feature matrices and target"""
+    print('\n7️⃣  Preparing feature matrices and target...')
+    
+    feature_cols = ['is_weekend', 'hour_sin', 'hour_cos', 'hour_of_day',
+                    'seg_speed_last_1', 'seg_speed_last_3_mean', 
+                    'seg_speed_last_6_mean', 'seg_speed_std_6']
+    
+    X_train = df_train[feature_cols].copy()
+    y_train = df_train['speed'].copy()
+    
+    X_test = df_test[feature_cols].copy()
+    y_test = df_test['speed'].copy()
+    
+    print(f'   X_train shape: {X_train.shape}')
+    print(f'   y_train shape: {y_train.shape}')
+    print(f'   X_test shape: {X_test.shape}')
+    print(f'   y_test shape: {y_test.shape}')
+    print(f'   Target (speed) - Min: {y_train.min():.2f}, Max: {y_train.max():.2f}, Mean: {y_train.mean():.2f}')
+    
+    return X_train, y_train, X_test, y_test
+
+def baseline_predictor(X_test, df_test):
+    """Baseline: use seg_speed_last_1 as prediction"""
+    print('\n8️⃣  Creating baseline predictor...')
+    print('   Baseline = seg_speed_last_1')
+    
+    y_baseline = df_test['seg_speed_last_1'].values
+    
+    print(f'   ✅ Baseline predictions generated')
+    return y_baseline
+
+def train_models(X_train, y_train):
+    """Train RandomForest and XGBoost"""
+    print('\n9️⃣  Training models...')
+    
+    # RandomForest
+    print('\n   🌲 RandomForestRegressor')
+    print('      Parameters: n_estimators=100, max_depth=15, random_state=42')
+    rf_model = RandomForestRegressor(n_estimators=100, max_depth=15, 
+                                     random_state=42, n_jobs=-1)
+    rf_model.fit(X_train, y_train)
+    print(f'      ✅ Model trained')
+    
+    # XGBoost
+    print('\n   🚀 XGBoostRegressor')
+    print('      Parameters: n_estimators=100, max_depth=6, learning_rate=0.1')
+    xgb_model = xgb.XGBRegressor(n_estimators=100, max_depth=6, 
+                                  learning_rate=0.1, random_state=42)
+    xgb_model.fit(X_train, y_train)
+    print(f'      ✅ Model trained')
+    
+    return rf_model, xgb_model
+
+def evaluate_models(y_test, y_baseline, y_rf, y_xgb):
+    """Evaluate all models on test set"""
+    print('\n🔟 Model Evaluation (Test Set)')
+    print('─' * 64)
+    
+    # MAE
+    mae_baseline = mean_absolute_error(y_test, y_baseline)
+    mae_rf = mean_absolute_error(y_test, y_rf)
+    mae_xgb = mean_absolute_error(y_test, y_xgb)
+    
+    # RMSE
+    rmse_baseline = np.sqrt(mean_squared_error(y_test, y_baseline))
+    rmse_rf = np.sqrt(mean_squared_error(y_test, y_rf))
+    rmse_xgb = np.sqrt(mean_squared_error(y_test, y_xgb))
+    
+    print('\n📊 MEAN ABSOLUTE ERROR (MAE)')
+    print(f'   Baseline:      {mae_baseline:.4f} km/h')
+    print(f'   RandomForest:  {mae_rf:.4f} km/h')
+    print(f'   XGBoost:       {mae_xgb:.4f} km/h')
+    
+    print('\n📊 ROOT MEAN SQUARED ERROR (RMSE)')
+    print(f'   Baseline:      {rmse_baseline:.4f} km/h')
+    print(f'   RandomForest:  {rmse_rf:.4f} km/h')
+    print(f'   XGBoost:       {rmse_xgb:.4f} km/h')
+    
+    # Improvements
+    print('\n📈 % IMPROVEMENT OVER BASELINE')
+    rf_mae_improvement = ((mae_baseline - mae_rf) / mae_baseline) * 100
+    xgb_mae_improvement = ((mae_baseline - mae_xgb) / mae_baseline) * 100
+    
+    rf_rmse_improvement = ((rmse_baseline - rmse_rf) / rmse_baseline) * 100
+    xgb_rmse_improvement = ((rmse_baseline - rmse_xgb) / rmse_baseline) * 100
+    
+    print(f'\n   RandomForest:')
+    print(f'      MAE improvement:  {rf_mae_improvement:+.2f}%')
+    print(f'      RMSE improvement: {rf_rmse_improvement:+.2f}%')
+    
+    print(f'\n   XGBoost:')
+    print(f'      MAE improvement:  {xgb_mae_improvement:+.2f}%')
+    print(f'      RMSE improvement: {xgb_rmse_improvement:+.2f}%')
+    
+    # Statistical significance test (Wilcoxon signed-rank)
+    print('\n📊 STATISTICAL SIGNIFICANCE (Wilcoxon signed-rank test)')
+    
+    rf_errors = np.abs(y_test.values - y_rf)
+    baseline_errors = np.abs(y_test.values - y_baseline)
+    statistic_rf, pvalue_rf = stats.wilcoxon(rf_errors, baseline_errors)
+    
+    xgb_errors = np.abs(y_test.values - y_xgb)
+    statistic_xgb, pvalue_xgb = stats.wilcoxon(xgb_errors, baseline_errors)
+    
+    print(f'   RandomForest vs Baseline: p-value = {pvalue_rf:.6f} {"✅ Significant" if pvalue_rf < 0.05 else "❌ Not significant"}')
+    print(f'   XGBoost vs Baseline:      p-value = {pvalue_xgb:.6f} {"✅ Significant" if pvalue_xgb < 0.05 else "❌ Not significant"}')
+    
+    return {
+        'mae_baseline': mae_baseline,
+        'mae_rf': mae_rf,
+        'mae_xgb': mae_xgb,
+        'rmse_baseline': rmse_baseline,
+        'rmse_rf': rmse_rf,
+        'rmse_xgb': rmse_xgb,
+        'rf_mae_improvement': rf_mae_improvement,
+        'xgb_mae_improvement': xgb_mae_improvement,
+        'rf_rmse_improvement': rf_rmse_improvement,
+        'xgb_rmse_improvement': xgb_rmse_improvement,
+        'pvalue_rf': pvalue_rf,
+        'pvalue_xgb': pvalue_xgb
+    }
+
+def save_predictions(df_test, y_baseline, y_rf, y_xgb, metrics, output_file='ml_results.csv'):
+    """Save predictions and metrics to CSV"""
+    print(f'\n💾 Saving predictions to {output_file}...')
+    
+    results_df = pd.DataFrame({
+        'timestamp': df_test['timestamp'].values,
+        'segment': df_test['segment'].values,
+        'actual_speed': df_test['speed'].values,
+        'baseline_speed': y_baseline,
+        'rf_speed': y_rf,
+        'xgb_speed': y_xgb,
+        'baseline_error': np.abs(df_test['speed'].values - y_baseline),
+        'rf_error': np.abs(df_test['speed'].values - y_rf),
+        'xgb_error': np.abs(df_test['speed'].values - y_xgb)
+    })
+    
+    results_df.to_csv(output_file, index=False)
+    print(f'   ✅ Saved {len(results_df)} rows to {output_file}')
+    print(f'   Sample rows:')
+    print(results_df.head(10).to_string(index=False))
+    
+    return results_df
+
+def print_feature_importance(rf_model, xgb_model, feature_names):
+    """Print feature importance from models"""
+    print('\n📊 FEATURE IMPORTANCE')
+    print('─' * 64)
+    
+    # RandomForest feature importance
+    print('\n🌲 RandomForest Feature Importance:')
+    rf_importance = pd.DataFrame({
+        'feature': feature_names,
+        'importance': rf_model.feature_importances_
+    }).sort_values('importance', ascending=False)
+    
+    for idx, row in rf_importance.iterrows():
+        bar = '█' * int(row['importance'] * 100)
+        print(f"   {row['feature']:25s} {bar} {row['importance']:.4f}")
+    
+    # XGBoost feature importance
+    print('\n🚀 XGBoost Feature Importance:')
+    xgb_importance_dict = xgb_model.get_booster().get_score(importance_type='weight')
+    xgb_importance = pd.DataFrame({
+        'feature': list(xgb_importance_dict.keys()),
+        'importance': list(xgb_importance_dict.values())
+    }).sort_values('importance', ascending=False)
+    
+    for idx, row in xgb_importance.iterrows():
+        bar = '█' * int(row['importance'] / max(xgb_importance['importance']) * 50)
+        print(f"   {row['feature']:25s} {bar} {row['importance']:.0f}")
+
+def main():
+    """Main pipeline"""
+    try:
+        # Load data
+        df = load_data('trip_history_ml_ready.csv')
+        
+        # Preprocess
+        df = preprocess_data(df)
+        
+        # Create rolling features
+        df = create_rolling_features(df)
+        
+        # Split data
+        df_train, df_test = split_data(df)
+        
+        # Prepare features
+        X_train, y_train, X_test, y_test = prepare_features(df_train, df_test)
+        
+        # Baseline predictor
+        y_baseline = baseline_predictor(X_test, df_test)
+        
+        # Train models
+        rf_model, xgb_model = train_models(X_train, y_train)
+        
+        # Make predictions
+        y_rf = rf_model.predict(X_test)
+        y_xgb = xgb_model.predict(X_test)
+        
+        # Evaluate
+        metrics = evaluate_models(y_test, y_baseline, y_rf, y_xgb)
+        
+        # Feature importance
+        feature_cols = ['is_weekend', 'hour_sin', 'hour_cos', 'hour_of_day',
+                        'seg_speed_last_1', 'seg_speed_last_3_mean', 
+                        'seg_speed_last_6_mean', 'seg_speed_std_6']
+        print_feature_importance(rf_model, xgb_model, feature_cols)
+        
+        # Save results
+        results_df = save_predictions(df_test, y_baseline, y_rf, y_xgb, metrics)
+        
+        # Summary
+        print('\n' + '═' * 64)
+        print('✅ PIPELINE COMPLETE')
+        print('═' * 64)
+        print(f'\n📊 Summary:')
+        print(f'   Total records processed: {len(df)}')
+        print(f'   Train set: {len(df_train)} records')
+        print(f'   Test set: {len(df_test)} records')
+        print(f'   Best model: {"XGBoost" if metrics["mae_xgb"] < metrics["mae_rf"] else "RandomForest"}')
+        print(f'   Best MAE: {min(metrics["mae_rf"], metrics["mae_xgb"]):.4f} km/h')
+        print(f'   Baseline MAE: {metrics["mae_baseline"]:.4f} km/h')
+        print(f'   Improvement: {max(metrics["rf_mae_improvement"], metrics["xgb_mae_improvement"]):.2f}%\n')
+        
+    except Exception as e:
+        print(f'\n❌ Error: {str(e)}')
+        import traceback
+        traceback.print_exc()
+
+if __name__ == '__main__':
+    main()
