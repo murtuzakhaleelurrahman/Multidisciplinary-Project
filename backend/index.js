@@ -2,10 +2,11 @@ require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const axios = require("axios");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:5001';
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'https://vit-ml-service.onrender.com';
 
 /* Health / lifecycle thresholds (ms) */
 const STALE_MS = 60 * 1000; // 60 seconds => STALE (aligned with frontend)
@@ -560,8 +561,87 @@ function computeMathematicalETA(segment_distance_m, seg_speed_last_1, seg_speed_
 }
 
 /* =========================================================
-   ML-POWERED ETA PREDICTION (Phase 4 Integration)
-   ========================================================= */
+   REUSABLE ML ETA PREDICTION FUNCTION (Service Layer)
+   =========================================================
+   Purpose: Centralized async function to call remote ML service
+   Benefits:
+   - Single source of truth for ML service communication
+   - Easy to test, mock, or swap services
+   - Consistent error handling across all callers
+   - Production-grade architecture
+*/
+async function getPredictedETA(payload) {
+  const startTime = Date.now();
+  
+  try {
+    // Call Render-deployed ML service
+    const response = await axios.post(`${ML_SERVICE_URL}/predict`, payload, {
+      timeout: 5000, // 5 second timeout for remote service
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const latency = Date.now() - startTime;
+    console.log(`✓ ML inference latency: ${latency} ms (Render service)`);
+    
+    return {
+      success: true,
+      mode: "ml",
+      data: response.data,
+      inference_time_ms: latency
+    };
+  } catch (err) {
+    const latency = Date.now() - startTime;
+    console.error(`✗ ML service error (${latency} ms):`, err.message);
+    
+    // Return error details for caller to handle
+    return {
+      success: false,
+      mode: "failed",
+      error: err.message,
+      code: err.code,
+      inference_time_ms: latency
+    };
+  }
+}
+
+/* =========================================================
+   ML-POWERED ETA PREDICTION ENDPOINT (Clean Architecture)
+   =========================================================
+   Route: POST /api/ml-eta
+   Purpose: Predict ETA using remote ML service with automatic fallback
+   
+   Request body:
+   {
+     "segment_distance_m": number,
+     "hour_of_day": 0-23,
+     "is_weekend": 0 or 1,
+     "seg_speed_last_1": number,
+     "seg_speed_last_3_mean": number,
+     "seg_speed_last_6_mean": number,
+     "seg_speed_std_6": number
+   }
+   
+   Response (ML mode):
+   {
+     "mode": "ml",
+     "predicted_speed_kmh": number,
+     "predicted_eta_seconds": number,
+     "predicted_eta_minutes": number,
+     "inference_time_ms": number
+   }
+   
+   Response (Fallback mode):
+   {
+     "mode": "fallback",
+     "method": "weighted_average",
+     "predicted_speed_kmh": number,
+     "predicted_eta_seconds": number,
+     "predicted_eta_minutes": number,
+     "warning": "ML service unavailable..."
+   }
+*/
 app.post("/api/ml-eta", async (req, res) => {
   const {
     segment_distance_m,
@@ -574,118 +654,66 @@ app.post("/api/ml-eta", async (req, res) => {
   } = req.body;
 
   // Validate required fields
-  if (
-    segment_distance_m === undefined ||
-    hour_of_day === undefined ||
-    is_weekend === undefined ||
-    seg_speed_last_1 === undefined ||
-    seg_speed_last_3_mean === undefined ||
-    seg_speed_last_6_mean === undefined ||
-    seg_speed_std_6 === undefined
-  ) {
+  const requiredFields = [
+    "segment_distance_m",
+    "hour_of_day",
+    "is_weekend",
+    "seg_speed_last_1",
+    "seg_speed_last_3_mean",
+    "seg_speed_last_6_mean",
+    "seg_speed_std_6"
+  ];
+
+  const missingFields = requiredFields.filter(field => req.body[field] === undefined);
+  if (missingFields.length > 0) {
     return res.status(400).json({
       error: "Missing required fields",
-      required: [
-        "segment_distance_m",
-        "hour_of_day",
-        "is_weekend",
-        "seg_speed_last_1",
-        "seg_speed_last_3_mean",
-        "seg_speed_last_6_mean",
-        "seg_speed_std_6"
-      ]
+      missing: missingFields,
+      required: requiredFields
     });
   }
 
-  try {
-    // STEP 2: Latency Logging (for conference paper metrics)
-    const startTime = Date.now();
-    
-    // Call Flask ML service using environment-aware URL
-    const axios = require('axios');
-    const mlResponse = await axios.post(`${ML_SERVICE_URL}/predict`, {
-      segment_distance_m,
-      hour_of_day,
-      is_weekend,
-      seg_speed_last_1,
-      seg_speed_last_3_mean,
-      seg_speed_last_6_mean,
-      seg_speed_std_6
-    }, {
-      timeout: 5000, // 5 second timeout
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+  // Prepare payload for ML service
+  const payload = {
+    segment_distance_m,
+    hour_of_day,
+    is_weekend,
+    seg_speed_last_1,
+    seg_speed_last_3_mean,
+    seg_speed_last_6_mean,
+    seg_speed_std_6
+  };
 
-    const latency = Date.now() - startTime;
-    console.log(`✓ ML inference latency: ${latency} ms`);
+  // Call ML service via reusable function
+  const mlResult = await getPredictedETA(payload);
 
-    // Return ML prediction result with metadata
-    res.json({
+  // If ML service succeeded, return its result
+  if (mlResult.success) {
+    return res.json({
       mode: "ml",
-      ...mlResponse.data,
-      inference_time_ms: latency
-    });
-
-  } catch (err) {
-    console.error("ML-ETA prediction error:", err.message);
-    
-    // STEP 1: Fault-Tolerant Fallback (Conference-Level Robustness)
-    if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
-      console.warn("⚠️ ML service unavailable. Falling back to mathematical ETA.");
-      
-      const fallbackResult = computeMathematicalETA(
-        segment_distance_m,
-        seg_speed_last_1,
-        seg_speed_last_3_mean,
-        seg_speed_last_6_mean
-      );
-      
-      return res.json({
-        mode: "fallback",
-        method: "weighted_average",
-        ...fallbackResult,
-        warning: "ML service unavailable, using deterministic calculation"
-      });
-    }
-    
-    if (err.response) {
-      // ML service returned an error - still fallback gracefully
-      console.warn("⚠️ ML prediction failed. Falling back to mathematical ETA.");
-      
-      const fallbackResult = computeMathematicalETA(
-        segment_distance_m,
-        seg_speed_last_1,
-        seg_speed_last_3_mean,
-        seg_speed_last_6_mean
-      );
-      
-      return res.json({
-        mode: "fallback",
-        method: "weighted_average",
-        ...fallbackResult,
-        warning: "ML prediction error, using deterministic calculation"
-      });
-    }
-    
-    // Generic error - last resort fallback
-    console.warn("⚠️ Unexpected error. Falling back to mathematical ETA.");
-    
-    const fallbackResult = computeMathematicalETA(
-      segment_distance_m,
-      seg_speed_last_1,
-      seg_speed_last_3_mean,
-      seg_speed_last_6_mean
-    );
-    
-    res.json({
-      mode: "fallback",
-      method: "weighted_average",
-      ...fallbackResult,
-      warning: "System error, using deterministic calculation"
+      ...mlResult.data,
+      inference_time_ms: mlResult.inference_time_ms
     });
   }
+
+  // ML service failed - use fallback
+  console.warn(`⚠️ ML service failed (${mlResult.error}). Using mathematical fallback.`);
+  
+  const fallbackResult = computeMathematicalETA(
+    segment_distance_m,
+    seg_speed_last_1,
+    seg_speed_last_3_mean,
+    seg_speed_last_6_mean
+  );
+
+  res.json({
+    mode: "fallback",
+    method: "weighted_average",
+    ...fallbackResult,
+    inference_time_ms: mlResult.inference_time_ms,
+    warning: `ML service unavailable (${mlResult.error}). Using deterministic fallback.`,
+    fallback_reason: mlResult.code || "connection_error"
+  });
 });
 
 /* =========================================================
