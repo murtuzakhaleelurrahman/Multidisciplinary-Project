@@ -717,6 +717,41 @@ app.post("/api/ml-eta", async (req, res) => {
 });
 
 /* =========================================================
+   QUICK TEST ENDPOINT (Testing ML Service Connection)
+   ========================================================= */
+app.get("/quick-test-eta", async (req, res) => {
+  try {
+    const response = await axios.post(
+      `${process.env.ML_SERVICE_URL}/predict`,
+      {
+        segment_distance_m: 1500,
+        hour_of_day: 17,
+        is_weekend: 0,
+        seg_speed_last_1: 22.0,
+        seg_speed_last_3_mean: 21.5,
+        seg_speed_last_6_mean: 20.8,
+        seg_speed_std_6: 3.5
+      },
+      {
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    res.json({
+      mode: "ml-direct-test",
+      ml_response: response.data
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      mode: "error",
+      message: error.message,
+      details: error.response?.data || null
+    });
+  }
+});
+
+/* =========================================================
    START SERVER
    ========================================================= */
 app.listen(PORT, () => {
