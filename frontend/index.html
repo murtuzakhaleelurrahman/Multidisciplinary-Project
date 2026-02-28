@@ -1588,16 +1588,13 @@
   // Force 127.0.0.1 to avoid Windows localhost resolution issues
   const localHost = "127.0.0.1";
   
-  // Allow API URL override via localStorage (for testing/deployment)
-  const customAPI = localStorage.getItem('CUSTOM_API_URL');
-  const defaultAPI = isLocal
-    ? `http://${localHost}:3100`
-    : "https://bus-tracking-and-occupancy-system.onrender.com";
-  const API_BASE = customAPI || defaultAPI;
+  // Force using the live Render backend (guarantees live data population)
+  // UPDATE: If backend unavailable, switch to local by changing to: http://127.0.0.1:3100
+  const API_BASE = "http://127.0.0.1:3100";
   
   // Show which API we're using (dev mode only)
-  if (window.SMART_TRANSIT_DEBUG || customAPI) {
-    console.log(`🔌 API Base: ${API_BASE}${customAPI ? ' (CUSTOM)' : ''}`);
+  if (window.SMART_TRANSIT_DEBUG) {
+    console.log(`🔌 API Base: ${API_BASE} (LOCAL BACKEND)`);
   }
 
   /* =============== CENTRALIZED CONFIGURA

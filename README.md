@@ -1,5 +1,14 @@
 # Smart Transit – Real-Time Bus Tracking & Monitoring System
 
+---
+## IEEE ML Pipeline Update (February 26, 2026)
+- Script: backend/eta_ml_pipeline.py
+- Data: backend/trip_history_ml_ready.csv; STOP_DATA loaded from frontend/index.html
+- Speed MAE: baseline 3.8504 km/h, XGBoost 2.6191 km/h (31.98% improvement)
+- ETA MAE: baseline 187.0375 s, XGBoost 121.4031 s (35.09% improvement), Wilcoxon p=0.0
+- Peak/off-peak ETA MAE: peak baseline 477.4938 s vs XGBoost 326.1945 s (31.69%); off-peak baseline 89.8007 s vs XGBoost 52.8446 s (41.15%)
+- Outputs: backend/ml_results.csv and backend/ml_eta_results.csv
+
 ## Overview
 
 **Smart Transit** is a real-time public bus tracking and monitoring application that provides commuters and transit operators with accurate bus location data, ETA predictions, and crowdsourced delay reporting. Built with Leaflet.js for interactive mapping and a Node.js backend, it delivers a responsive, production-ready user experience.
