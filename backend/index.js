@@ -733,7 +733,8 @@ app.get("/quick-test-eta", async (req, res) => {
         seg_speed_std_6: 3.5
       },
       {
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
+        timeout: 60000   // 60 seconds
       }
     );
 
