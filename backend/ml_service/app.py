@@ -195,6 +195,9 @@ def index():
     """
     Service information endpoint.
     """
+    # Dynamically build service URL from request
+    service_url = request.base_url.rstrip('/')
+    
     return jsonify({
         'service': 'ML ETA Prediction Service',
         'version': '1.0.0',
@@ -205,7 +208,7 @@ def index():
         },
         'documentation': {
             'predict_example': {
-                'url': 'POST http://localhost:5001/predict',
+                'url': f'POST {service_url}/predict',
                 'body': {
                     'segment_distance_m': 1500,
                     'hour_of_day': 17,
@@ -246,18 +249,21 @@ def internal_error(error):
 # ============================================================
 
 if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5001))
+    service_url = os.environ.get("SERVICE_URL", f"http://localhost:{port}")
+    
     print('\n' + '='*70)
     print('ML ETA PREDICTION SERVICE')
     print('='*70)
-    print('\n🚀 Starting Flask server on port 5001...\n')
+    print(f'\n🚀 Starting Flask server on port {port}...\n')
     print('Endpoints:')
-    print('   GET  http://localhost:5001/         - Service info')
-    print('   GET  http://localhost:5001/health   - Health check')
-    print('   POST http://localhost:5001/predict  - Make prediction\n')
+    print(f'   GET  {service_url}/         - Service info')
+    print(f'   GET  {service_url}/health   - Health check')
+    print(f'   POST {service_url}/predict  - Make prediction\n')
     print('='*70)
     print('\n📝 EXAMPLE CURL TESTS:\n')
     print('1. Health Check:')
-    print('   curl http://localhost:5001/health\n')
+    print(f'   curl {service_url}/health\n')
     print('2. Predict ETA (Windows PowerShell):')
     print('   $body = @{')
     print('       segment_distance_m = 1500')
@@ -268,12 +274,11 @@ if __name__ == '__main__':
     print('       seg_speed_last_6_mean = 20.8')
     print('       seg_speed_std_6 = 3.5')
     print('   } | ConvertTo-Json')
-    print('   Invoke-RestMethod -Uri http://localhost:5001/predict -Method POST -Body $body -ContentType "application/json"\n')
+    print(f'   Invoke-RestMethod -Uri {service_url}/predict -Method POST -Body $body -ContentType "application/json"\n')
     print('3. Predict ETA (Linux/Mac/Git Bash):')
-    print('   curl -X POST http://localhost:5001/predict \\')
+    print(f'   curl -X POST {service_url}/predict \\')
     print('        -H "Content-Type: application/json" \\')
     print('        -d \'{"segment_distance_m":1500,"hour_of_day":17,"is_weekend":0,"seg_speed_last_1":22.0,"seg_speed_last_3_mean":21.5,"seg_speed_last_6_mean":20.8,"seg_speed_std_6":3.5}\'\n')
     print('='*70 + '\n')
     
-    port = int(os.environ.get("PORT", 5001))
     app.run(host="0.0.0.0", port=port)
