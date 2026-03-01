@@ -754,8 +754,8 @@ app.get("/quick-test-eta", async (req, res) => {
 });
 
 /* =========================================================
-   ROUTE ETA API (Full Route Estimation)
-   Calculates total ETA for a complete route using segment speeds
+   ROUTE ETA API (ML-Powered Full Route Estimation)
+   Calculates total ETA with ML prediction + intelligent fallback
    ========================================================= */
 app.get("/api/route/:routeId/eta", async (req, res) => {
   if (!dbReady) return res.status(503).json({ error: "Database not ready" });
@@ -769,59 +769,129 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
       return res.status(404).json({ error: `Route ${routeId} not found` });
     }
 
-    // Get current hour for traffic data lookup
+    // Get current time context
     const currentHour = new Date().getHours();
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const currentDate = new Date();
+    const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6 ? 1 : 0;
     const FALLBACK_SPEED_KMH = 25;
+    const MIN_SAMPLES_FOR_ML = 2; // Minimum data points to attempt ML
 
-    // Fetch segment speeds from TripHistory
-    const trafficData = await TripHistory.aggregate([
-      {
-        $match: {
-          timestamp: { $gte: sevenDaysAgo },
-          hour_of_day: currentHour,
-          speed: { $ne: null, $gt: 1 },
-          segment: { $ne: null, $exists: true }
-        }
-      },
-      {
-        $group: {
-          _id: "$segment",
-          avgSpeed: { $avg: "$speed" },
-          sampleSize: { $sum: 1 }
-        }
+    // Helper: Extract traffic features for a segment from TripHistory
+    const getSegmentFeatures = async (segmentId) => {
+      const recentData = await TripHistory.find({
+        segment: segmentId,
+        speed: { $ne: null, $gt: 1 },
+        hour_of_day: currentHour
+      })
+        .sort({ timestamp: -1 })
+        .limit(6)
+        .lean();
+
+      if (recentData.length < MIN_SAMPLES_FOR_ML) {
+        return null; // Insufficient data
       }
-    ]);
 
-    // Build speed lookup map
-    const speedMap = {};
-    trafficData.forEach(item => {
-      speedMap[item._id] = item.avgSpeed;
-    });
+      const speeds = recentData.map(d => d.speed);
+      const seg_speed_last_1 = speeds[0];
+      const seg_speed_last_3_mean = speeds.slice(0, 3).reduce((a, b) => a + b, 0) / Math.min(3, speeds.length);
+      const seg_speed_last_6_mean = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+      
+      // Calculate standard deviation
+      const mean = seg_speed_last_6_mean;
+      const variance = speeds.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / speeds.length;
+      const seg_speed_std_6 = Math.sqrt(variance);
 
-    // Calculate ETA for each segment
+      return {
+        seg_speed_last_1,
+        seg_speed_last_3_mean: Math.round(seg_speed_last_3_mean * 10) / 10,
+        seg_speed_last_6_mean: Math.round(seg_speed_last_6_mean * 10) / 10,
+        seg_speed_std_6: Math.round(seg_speed_std_6 * 10) / 10,
+        sample_count: speeds.length
+      };
+    };
+
+    // Helper: Call ML service for segment ETA prediction
+    const callMLETA = async (segment, features) => {
+      try {
+        const mlPayload = {
+          segment_distance_m: segment.distance_m,
+          hour_of_day: currentHour,
+          is_weekend: isWeekend,
+          seg_speed_last_1: features.seg_speed_last_1,
+          seg_speed_last_3_mean: features.seg_speed_last_3_mean,
+          seg_speed_last_6_mean: features.seg_speed_last_6_mean,
+          seg_speed_std_6: features.seg_speed_std_6
+        };
+
+        const mlResponse = await axios.post(
+          `${ML_SERVICE_URL}/predict`,
+          mlPayload,
+          { timeout: 5000 }
+        );
+
+        if (mlResponse.data && mlResponse.data.predicted_eta_seconds) {
+          return {
+            eta_seconds: mlResponse.data.predicted_eta_seconds,
+            source: "ml",
+            success: true
+          };
+        }
+      } catch (error) {
+        console.warn(`ML service unavailable for segment: ${error.message}`);
+      }
+      
+      return null;
+    };
+
+    // Helper: Calculate fallback ETA
+    const getFallbackETA = (distanceM) => {
+      const distanceKm = distanceM / 1000;
+      return {
+        eta_seconds: Math.round((distanceKm / FALLBACK_SPEED_KMH) * 3600),
+        source: "fallback",
+        success: false
+      };
+    };
+
+    // Process each segment
     let totalEtaSeconds = 0;
+    let mlSuccessCount = 0;
     const segmentDetails = [];
 
-    route.segments.forEach(segment => {
+    for (const segment of route.segments) {
       const segmentId = `${segment.from}->${segment.to}`;
-      const speedKmh = speedMap[segmentId] || FALLBACK_SPEED_KMH;
-      const distanceKm = segment.distance_m / 1000;
-      const segmentEtaSeconds = (distanceKm / speedKmh) * 3600; // Convert hours to seconds
+      
+      // Step 1: Get traffic features
+      const features = await getSegmentFeatures(segmentId);
+      
+      let segmentResult = null;
 
-      totalEtaSeconds += segmentEtaSeconds;
+      if (features) {
+        // Step 2: Try ML prediction
+        segmentResult = await callMLETA(segment, features);
+      }
+
+      // Step 3: Fallback if needed
+      if (!segmentResult) {
+        segmentResult = getFallbackETA(segment.distance_m);
+      } else {
+        mlSuccessCount++;
+      }
+
+      totalEtaSeconds += segmentResult.eta_seconds;
 
       segmentDetails.push({
         from: segment.from,
         to: segment.to,
         distance_m: segment.distance_m,
-        speed_kmh: Math.round(speedKmh * 10) / 10,
-        eta_seconds: Math.round(segmentEtaSeconds),
-        has_traffic_data: !!speedMap[segmentId]
+        speed_kmh: Math.round((segment.distance_m / 1000 / (segmentResult.eta_seconds / 3600)) * 10) / 10,
+        eta_seconds: segmentResult.eta_seconds,
+        source: segmentResult.source
       });
-    });
+    }
 
     const totalEtaMinutes = Math.round(totalEtaSeconds / 60);
+    const overallMode = mlSuccessCount === route.segments.length ? "ml" : mlSuccessCount > 0 ? "ml-hybrid" : "fallback";
 
     res.json({
       route_id: routeId,
@@ -829,7 +899,11 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
       total_distance_m: route.segments.reduce((sum, seg) => sum + seg.distance_m, 0),
       total_eta_seconds: Math.round(totalEtaSeconds),
       total_eta_minutes: totalEtaMinutes,
+      mode: overallMode,
       current_hour: currentHour,
+      is_weekend: isWeekend,
+      ml_segments: mlSuccessCount,
+      fallback_segments: route.segments.length - mlSuccessCount,
       segments: segmentDetails
     });
 
