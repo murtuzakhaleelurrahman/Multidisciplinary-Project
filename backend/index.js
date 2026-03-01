@@ -577,7 +577,7 @@ async function getPredictedETA(payload) {
   try {
     // Call Render-deployed ML service
     const response = await axios.post(`${ML_SERVICE_URL}/predict`, payload, {
-      timeout: 5000, // 5 second timeout for remote service
+      timeout: 15000, // 15 second timeout for remote service
       headers: {
         'Content-Type': 'application/json'
       }
@@ -826,7 +826,7 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
         const mlResponse = await axios.post(
           `${ML_SERVICE_URL}/predict`,
           mlPayload,
-          { timeout: 5000 }
+          { timeout: 15000 }
         );
 
         if (mlResponse.data && mlResponse.data.predicted_eta_seconds) {
