@@ -44,6 +44,7 @@ if (MONGODB_URI) {
 const ActiveFleet = require('./models/ActiveFleet');
 const TripHistory = require('./models/TripHistory');
 const User = require('./models/User');
+const Routes = require('./models/Routes');
 
 /* =========================================================
    GARBAGE COLLECTION
@@ -749,6 +750,92 @@ app.get("/quick-test-eta", async (req, res) => {
       message: error.message,
       details: error.response?.data || null
     });
+  }
+});
+
+/* =========================================================
+   ROUTE ETA API (Full Route Estimation)
+   Calculates total ETA for a complete route using segment speeds
+   ========================================================= */
+app.get("/api/route/:routeId/eta", async (req, res) => {
+  if (!dbReady) return res.status(503).json({ error: "Database not ready" });
+
+  const { routeId } = req.params;
+
+  try {
+    // Fetch route definition
+    const route = await Routes.findOne({ route_id: routeId });
+    if (!route) {
+      return res.status(404).json({ error: `Route ${routeId} not found` });
+    }
+
+    // Get current hour for traffic data lookup
+    const currentHour = new Date().getHours();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const FALLBACK_SPEED_KMH = 25;
+
+    // Fetch segment speeds from TripHistory
+    const trafficData = await TripHistory.aggregate([
+      {
+        $match: {
+          timestamp: { $gte: sevenDaysAgo },
+          hour_of_day: currentHour,
+          speed: { $ne: null, $gt: 1 },
+          segment: { $ne: null, $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: "$segment",
+          avgSpeed: { $avg: "$speed" },
+          sampleSize: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Build speed lookup map
+    const speedMap = {};
+    trafficData.forEach(item => {
+      speedMap[item._id] = item.avgSpeed;
+    });
+
+    // Calculate ETA for each segment
+    let totalEtaSeconds = 0;
+    const segmentDetails = [];
+
+    route.segments.forEach(segment => {
+      const segmentId = `${segment.from}->${segment.to}`;
+      const speedKmh = speedMap[segmentId] || FALLBACK_SPEED_KMH;
+      const distanceKm = segment.distance_m / 1000;
+      const segmentEtaSeconds = (distanceKm / speedKmh) * 3600; // Convert hours to seconds
+
+      totalEtaSeconds += segmentEtaSeconds;
+
+      segmentDetails.push({
+        from: segment.from,
+        to: segment.to,
+        distance_m: segment.distance_m,
+        speed_kmh: Math.round(speedKmh * 10) / 10,
+        eta_seconds: Math.round(segmentEtaSeconds),
+        has_traffic_data: !!speedMap[segmentId]
+      });
+    });
+
+    const totalEtaMinutes = Math.round(totalEtaSeconds / 60);
+
+    res.json({
+      route_id: routeId,
+      route_name: route.route_name,
+      total_distance_m: route.segments.reduce((sum, seg) => sum + seg.distance_m, 0),
+      total_eta_seconds: Math.round(totalEtaSeconds),
+      total_eta_minutes: totalEtaMinutes,
+      current_hour: currentHour,
+      segments: segmentDetails
+    });
+
+  } catch (err) {
+    console.error("Route ETA error:", err.message);
+    res.status(500).json({ error: "ETA calculation failed" });
   }
 });
 
