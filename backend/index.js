@@ -841,7 +841,17 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
           };
         }
       } catch (error) {
-        console.warn(`ML service unavailable for segment: ${error.message}`);
+        console.log("❌ ML CALL FAILED");
+        console.log("Message:", error.message);
+
+        if (error.response) {
+          console.log("Status:", error.response.status);
+          console.log("Data:", error.response.data);
+        }
+
+        if (error.code) {
+          console.log("Code:", error.code);
+        }
       }
       
       return null;
