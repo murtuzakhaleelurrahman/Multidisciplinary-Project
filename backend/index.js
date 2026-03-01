@@ -857,6 +857,14 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
       };
     };
 
+    // Warm up ML service before segment predictions
+    try {
+      await axios.get(`${ML_SERVICE_URL}/health`, { timeout: 15000 });
+      console.log("✅ ML service warmed up");
+    } catch (err) {
+      console.log("⚠️ ML warmup failed:", err.message);
+    }
+
     // Process each segment
     let totalEtaSeconds = 0;
     let mlSuccessCount = 0;
