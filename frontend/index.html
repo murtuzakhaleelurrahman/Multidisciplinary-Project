@@ -1588,13 +1588,12 @@
   // Force 127.0.0.1 to avoid Windows localhost resolution issues
   const localHost = "127.0.0.1";
   
-  // Load API configuration from localStorage (set via configure.html) or use default
-  const API_BASE = localStorage.getItem('CUSTOM_API_URL') || "http://127.0.0.1:3100";
+  // Production backend URL (hardcoded for static deployment)
+  const API_BASE = "https://bus-tracking-and-occupancy-system.onrender.com";
   
   // Show which API we're using (dev mode only)
   if (window.SMART_TRANSIT_DEBUG) {
-    const source = localStorage.getItem('CUSTOM_API_URL') ? 'CUSTOM (localStorage)' : 'LOCAL BACKEND DEFAULT';
-    console.log(`🔌 API Base: ${API_BASE} (${source})`);
+    console.log(`🔌 API Base: ${API_BASE} (PRODUCTION)`);
   }
 
   /* =============== CENTRALIZED CONFIGURA
