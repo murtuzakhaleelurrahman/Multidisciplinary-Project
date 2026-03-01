@@ -791,6 +791,9 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
         .limit(6)
         .lean();
 
+      // DEBUG: Log segment records found
+      console.log(`📊 Segment: ${segmentId} | Records found: ${recentData.length}`);
+
       if (recentData.length < MIN_SAMPLES_FOR_ML) {
         return null; // Insufficient data
       }
