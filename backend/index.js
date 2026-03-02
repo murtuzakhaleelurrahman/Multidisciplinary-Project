@@ -16,6 +16,7 @@ const MAX_SPEED_MPS = process.env.NODE_ENV === "production" ? 35 : 45; // relax 
 const FREE_FLOW_SPEED_KMH = 30; // baseline for traffic modifier
 const HEATMAP_WINDOW_HOURS = 4;
 const HEATMAP_MIN_SAMPLES = 3;
+let routeEtaCache = {};
 app.use(cors());
 app.use(express.json());
 
@@ -761,6 +762,14 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
   if (!dbReady) return res.status(503).json({ error: "Database not ready" });
 
   const { routeId } = req.params;
+  const cacheKey = routeId;
+  const now = Date.now();
+
+  if (routeEtaCache[cacheKey] &&
+    now - routeEtaCache[cacheKey].timestamp < 30000) {
+    console.log("⚡ Returning cached ETA");
+    return res.json(routeEtaCache[cacheKey].data);
+  }
 
   // DEBUG: Log ML Service URL to verify it's loaded
   console.log("🔍 DEBUG - ML_SERVICE_URL:", process.env.ML_SERVICE_URL);
@@ -920,7 +929,7 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
     const totalEtaMinutes = Math.round(totalEtaSeconds / 60);
     const overallMode = mlSuccessCount === route.segments.length ? "ml" : mlSuccessCount > 0 ? "ml-hybrid" : "fallback";
 
-    res.json({
+    const responseData = {
       route_id: routeId,
       route_name: route.route_name,
       total_distance_m: route.segments.reduce((sum, seg) => sum + seg.distance_m, 0),
@@ -932,7 +941,14 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
       ml_segments: mlSuccessCount,
       fallback_segments: route.segments.length - mlSuccessCount,
       segments: segmentDetails
-    });
+    };
+
+    routeEtaCache[cacheKey] = {
+      data: responseData,
+      timestamp: Date.now()
+    };
+
+    res.json(responseData);
 
   } catch (err) {
     console.error("Route ETA error:", err.message);
