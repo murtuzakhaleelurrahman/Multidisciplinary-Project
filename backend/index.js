@@ -782,10 +782,12 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
 
     // Helper: Extract traffic features for a segment from TripHistory
     const getSegmentFeatures = async (segmentId) => {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
       const recentData = await TripHistory.find({
         segment: segmentId,
         speed: { $ne: null, $gt: 1 },
-        hour_of_day: currentHour
+        timestamp: { $gte: oneHourAgo }
       })
         .sort({ timestamp: -1 })
         .limit(6)
