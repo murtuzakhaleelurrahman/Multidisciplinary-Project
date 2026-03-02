@@ -957,6 +957,104 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
 });
 
 /* =========================================================
+   ROUTE COMPARISON API
+   Compares ETA between ROUTE_1 and ROUTE_2 and returns fastest route
+   ========================================================= */
+app.get("/api/routes/compare", async (req, res) => {
+  if (!dbReady) return res.status(503).json({ error: "Database not ready" });
+
+  try {
+    const baseUrl = `http://127.0.0.1:${PORT}`;
+
+    const [route1Response, route2Response] = await Promise.all([
+      axios.get(`${baseUrl}/api/route/ROUTE_1/eta`, { timeout: 20000 }),
+      axios.get(`${baseUrl}/api/route/ROUTE_2/eta`, { timeout: 20000 })
+    ]);
+
+    const route1Eta = route1Response.data?.total_eta_minutes;
+    const route2Eta = route2Response.data?.total_eta_minutes;
+    const route1Segments = route1Response.data?.segments;
+    const route2Segments = route2Response.data?.segments;
+
+    if (!Number.isFinite(route1Eta) || !Number.isFinite(route2Eta) ||
+      !Array.isArray(route1Segments) || route1Segments.length === 0 ||
+      !Array.isArray(route2Segments) || route2Segments.length === 0) {
+      return res.status(500).json({ error: "Invalid ETA response for route comparison" });
+    }
+
+    const buildRouteSummary = (routeId, routeData) => {
+      const avgSpeed =
+        routeData.segments.reduce((sum, s) => sum + s.speed_kmh, 0) /
+        routeData.segments.length;
+      const speeds = routeData.segments.map(s => s.speed_kmh);
+      const mean =
+        speeds.reduce((sum, s) => sum + s, 0) / speeds.length;
+      const variance =
+        speeds.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) /
+        speeds.length;
+      const stdDev = Math.sqrt(variance);
+
+      let reliabilityScore = 1 - (stdDev / 10);
+      reliabilityScore = Math.max(0, Math.min(1, reliabilityScore));
+      reliabilityScore = parseFloat(reliabilityScore.toFixed(2));
+
+      let congestionLevel;
+
+      if (avgSpeed >= 28) {
+        congestionLevel = "free_flow";
+      } else if (avgSpeed >= 22) {
+        congestionLevel = "moderate";
+      } else {
+        congestionLevel = "heavy";
+      }
+
+      const baselineSpeedMps = 25 * (1000 / 3600);
+      const baselineEtaSeconds =
+        routeData.total_distance_m / baselineSpeedMps;
+      const baselineEtaMinutes =
+        baselineEtaSeconds / 60;
+      const mlEtaMinutes = routeData.total_eta_minutes;
+      const improvement =
+        baselineEtaMinutes - mlEtaMinutes;
+      const baselineRounded =
+        parseFloat(baselineEtaMinutes.toFixed(2));
+      const improvementRounded =
+        parseFloat(improvement.toFixed(2));
+
+      return {
+        route_id: routeId,
+        eta_minutes: routeData.total_eta_minutes,
+        baseline_eta_minutes: baselineRounded,
+        ml_improvement_minutes: improvementRounded,
+        average_speed_kmh: Math.round(avgSpeed * 10) / 10,
+        congestion_level: congestionLevel,
+        reliability_score: reliabilityScore,
+        mode: routeData.mode,
+        ml_segments: routeData.ml_segments,
+        fallback_segments: routeData.fallback_segments
+      };
+    };
+
+    const fastestRoute = route1Eta <= route2Eta ? "ROUTE_1" : "ROUTE_2";
+    const etaDifferenceMinutes = Math.abs(route1Eta - route2Eta);
+    const route1Summary = buildRouteSummary("ROUTE_1", route1Response.data);
+    const route2Summary = buildRouteSummary("ROUTE_2", route2Response.data);
+
+    res.json({
+      fastest_route: fastestRoute,
+      eta_difference_minutes: etaDifferenceMinutes,
+      routes: [
+        route1Summary,
+        route2Summary
+      ]
+    });
+  } catch (err) {
+    console.error("Route comparison error:", err.message);
+    res.status(500).json({ error: "Route comparison failed" });
+  }
+});
+
+/* =========================================================
    START SERVER
    ========================================================= */
 app.listen(PORT, () => {

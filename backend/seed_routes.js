@@ -34,6 +34,17 @@ async function seedRoutes() {
           { from: "VLR_002", to: "VLR_003", distance_m: 900 },
           { from: "VLR_003", to: "VLR_004", distance_m: 1500 }
         ]
+      },
+      {
+        route_id: "ROUTE_2",
+        route_name: "VIT Outer Loop",
+        segments: [
+          { from: "VLR_010", to: "VLR_011", distance_m: 800 },
+          { from: "VLR_011", to: "VLR_012", distance_m: 1400 },
+          { from: "VLR_012", to: "VLR_013", distance_m: 1100 },
+          { from: "VLR_013", to: "VLR_014", distance_m: 900 },
+          { from: "VLR_014", to: "VLR_015", distance_m: 1600 }
+        ]
       }
     ];
 
