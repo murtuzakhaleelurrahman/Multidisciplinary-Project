@@ -130,19 +130,48 @@ frontend/configure.html
 
 ### Backend (Node.js + Express)
 ```
-backend/index.js (457 lines)
+backend/index.js (1036+ lines, 14 endpoints)
 ├── CORS enabled ✅
 ├── Mongoose + MongoDB
 ├── POST /api/auth/login
 ├── POST /api/bus/update
-├── GET /api/traffic_profile
-├── GET /api/health (NEW)
-└── WebSocket handlers
+├── GET  /api/bus_locations
+├── GET  /api/traffic/heatmap
+├── GET  /api/traffic/segments
+├── GET  /api/traffic_profile
+├── GET  /api/health
+├── GET  /api/user/tickets
+├── POST /api/ml-eta          ← ML service proxy
+├── GET  /api/route/:id/eta   ← ML ETA + 30s cache
+└── GET  /api/routes/compare  ← Multi-metric comparison
 
 backend/models/
-├── User.js (login credentials)
-├── ActiveFleet.js (buses)
-└── TripHistory.js (routes)
+├── User.js          (login credentials)
+├── ActiveFleet.js   (live bus positions)
+├── TripHistory.js   (per-segment speed history)
+└── Routes.js        (route + segment definitions)
+
+backend/ml_service/
+└── app.py           (Flask XGBoost microservice → Render)
+                     endpoint: POST /predict
+```
+
+### ML Architecture
+```
+Frontend
+  ↓
+GET /api/route/:routeId/eta
+  ↓
+getSegmentFeatures()          ← TripHistory (last 60 min)
+  ↓
+POST https://vit-ml-service.onrender.com/predict
+  ↓ ML payload: segment_distance_m, hour_of_day, is_weekend,
+     seg_speed_last_1, seg_speed_last_3_mean,
+     seg_speed_last_6_mean, seg_speed_std_6
+  ↓
+predicted_eta_seconds  (or fallback @ 25 km/h)
+  ↓
+30-second routeEtaCache  (in-memory, per routeId)
 ```
 
 ### Deployment Configs (NEW)

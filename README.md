@@ -109,11 +109,29 @@ npm start
 ```
 
 Backend provides:
+
+**Core APIs**
 - `POST /api/auth/login` – User authentication (demo-only, no bcrypt)
 - `GET /api/bus_locations` – Returns all active buses with health status
-- `POST /api/bus/update` – Updates bus telemetry with sanity checks
+- `POST /api/bus/update` – Updates bus telemetry with GPS sanity checks
 - `POST /api/system/reset` – Resets all fleet data
-- `GET /api/traffic/heatmap` – Returns traffic speed data per segment
+- `GET /api/traffic/heatmap` – Returns traffic speed data per segment (4-hour window)
+- `GET /api/traffic/segments` – Per-segment speed aggregates
+- `GET /api/health` – Service health + MongoDB status + uptime
+
+**ML ETA APIs**
+- `GET /api/route/:routeId/eta` – ML-powered full-route ETA (XGBoost + fallback, 30s in-memory cache)
+- `GET /api/routes/compare` – Side-by-side route comparison: ETA, congestion level, reliability score, baseline benchmark, ML improvement
+- `POST /api/ml-eta` – Direct ML service proxy
+
+**Seed Scripts**
+```bash
+node seed_routes.js            # Seeds ROUTE_1 (VIT Main Line) + ROUTE_2 (VIT Outer Loop)
+node seed_trip_history.js      # ROUTE_1 trip history (1-hour window)
+node seed_trip_history.js ROUTE_2  # ROUTE_2 differentiated traffic profile
+node seed_users.js             # Demo accounts
+node seed_traffic.js           # Legacy traffic heatmap data
+```
 
 ### Frontend
 ```bash
@@ -287,10 +305,15 @@ Security.escapeHTML("<script>alert('xss')</script>");  // Should escape
 
 ## Future Scope (Phase 2 & Beyond)
 
+### ✅ Completed (March 2026)
+- **ML-based ETA** – XGBoost model served via `https://vit-ml-service.onrender.com`; per-segment prediction using real-time speed features (`seg_speed_last_1`, `seg_speed_last_3_mean`, `seg_speed_last_6_mean`, `seg_speed_std_6`)
+- **Multi-route framework** – ROUTE_1 (VIT Main Line) + ROUTE_2 (VIT Outer Loop) with differentiated traffic profiles
+- **Route comparison engine** – `GET /api/routes/compare` with congestion classification, reliability scoring, and ML vs baseline benchmarking
+- **Route comparison dashboard** – `frontend/route-comparison.html` renders decision banner and route cards from live API data
+
 ### High Priority
 - **WebSocket sync** – Replace HTTP polling with Socket.io real-time push
-- **ML-based ETA** – Learn from historical patterns, adapt speed estimates
-- **Advanced analytics** – Real-time traffic prediction using TripHistory data
+- **Peak-hour modeling** – Time-aware ETA adjustment based on historical patterns
 
 ### Medium Priority
 - **Delay analytics** – Enhanced heatmaps of peak delay times, predictive alerts
@@ -312,26 +335,44 @@ Multidisciplinary Project/
 ├── README.md                      (this file)
 ├── EVALUATOR_GUIDE.md             (Quick start for evaluators)
 ├── QUICK_START_EVALUATION.md      (Testing & evaluation guide)
-├── SETUP_GUIDE.md                 (Backend setup instructions)
-├── SEEDER_GUIDE.md                (Traffic data seeding guide)
+├── ARCHITECTURE.md                (System and deployment architecture)
+├── CURRENT_STATE_SUMMARY.md       (Full feature + API inventory)
+├── WHAT_WAS_DONE.md               (Development log)
 ├── frontend/
-│   ├── index.html                 (2300+ lines, all-in-one SPA)
-│   │   ├── <style> CSS embedded
-│   │   └── <script> JavaScript embedded
+│   ├── index.html                 (Main SPA – live tracking, ETA, analytics)
+│   ├── configure.html             (Backend URL configuration UI)
+│   ├── route-comparison.html      (ML route comparison dashboard)
+│   ├── route-comparison.js        (Fetches /api/routes/compare, renders cards)
+│   ├── route-style.css            (Route comparison page styles)
+│   ├── manifest.json              (PWA manifest)
+│   ├── sw.js                      (Service worker)
 │   └── tests.js                   (Unit tests, auto-loaded in debug mode)
 ├── backend/
-│   ├── index.js                   (Express server, 450+ lines)
+│   ├── index.js                   (Express server – 1000+ lines, 14 endpoints)
 │   ├── package.json
 │   ├── .env.example               (Environment variables template)
-│   ├── .env                       (Your MongoDB config - git ignored)
-│   ├── seed_traffic.js            (Generates 30 days of traffic data)
+│   ├── .env                       (Your MongoDB config – git ignored)
+│   ├── seed_routes.js             (Seeds ROUTE_1 + ROUTE_2 definitions)
+│   ├── seed_trip_history.js       (Seeds per-route traffic history, 2-hour window)
+│   ├── seed_traffic.js            (Legacy heatmap traffic data)
 │   ├── seed_users.js              (Creates demo users)
-│   ├── SEEDER_GUIDE.md            (Seeding instructions)
-│   ├── SETUP_GUIDE.md             (Backend setup guide)
+│   ├── predict_eta.py             (Python ML inference wrapper)
+│   ├── train_model.py             (XGBoost model training script)
+│   ├── eta_ml_pipeline.py         (Full ML evaluation pipeline)
+│   ├── SEEDER_GUIDE.md
+│   ├── SETUP_GUIDE.md
 │   └── models/
 │       ├── ActiveFleet.js         (Current bus positions & state)
-│       ├── TripHistory.js         (Historical traffic data)
+│       ├── TripHistory.js         (Historical traffic data per segment)
+│       ├── Routes.js              (Route definitions with segments)
 │       └── User.js                (User authentication)
+├── ml_pipeline/
+│   ├── eta_pipeline.py            (Standalone ML pipeline)
+│   ├── train_eta_model.py
+│   └── requirements.txt
+├── backend/ml_service/
+│   ├── app.py                     (Flask ML microservice – deployed to Render)
+│   └── requirements.txt
 └── tests/
     └── basic-tests.js             (Console assertions for core logic)
 ```
@@ -531,8 +572,8 @@ console.groupEnd();
 
 ---
 
-**Last Updated**: February 2026  
-**Version**: 1.0 (Golden Master)  
-**Status**: ✅ Production-Ready with MongoDB Integration  
+**Last Updated**: March 2026  
+**Version**: 2.0 – Multi-Route ML ETA Framework  
+**Status**: ✅ Production-Ready | ML-Powered | Multi-Route Comparison  
 **License**: Educational Use Only
 

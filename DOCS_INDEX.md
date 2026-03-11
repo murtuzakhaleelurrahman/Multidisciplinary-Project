@@ -53,8 +53,16 @@
 
 | File | Purpose | Time | Status |
 |------|---------|------|--------|
-| **CONFIGURE_TOOL_GUIDE.md** | How to use the configuration tool | 10 min | ✅ NEW |
-| **frontend/configure.html** | Interactive backend URL configuration UI | N/A | ✅ NEW |
+| **CONFIGURE_TOOL_GUIDE.md** | How to use the configuration tool | 10 min | ✅ |
+| **frontend/configure.html** | Interactive backend URL configuration UI | N/A | ✅ |
+
+### Route Comparison (NEW – March 2026)
+
+| File | Purpose | Time | Status |
+|------|---------|------|--------|
+| **frontend/route-comparison.html** | ML route comparison dashboard page | N/A | ✅ NEW |
+| **frontend/route-comparison.js** | Fetches `/api/routes/compare`, renders decision banner + route cards | N/A | ✅ NEW |
+| **frontend/route-style.css** | Stylesheet for route comparison page | N/A | ✅ NEW |
 
 ### Backend Documentation
 
@@ -72,6 +80,8 @@
 | **backend/check-deploy.js** | Verify deployment readiness | `node check-deploy.js` |
 | **backend/verify-backend.js** | Test backend is reachable | `node verify-backend.js <url>` |
 | **backend/seed_users.js** | Populate database with test users | `node seed_users.js` |
+| **backend/seed_routes.js** | Seed ROUTE_1 + ROUTE_2 definitions | `node seed_routes.js` |
+| **backend/seed_trip_history.js** | Seed traffic history for a route | `node seed_trip_history.js [ROUTE_ID]` |
 
 ### Production & Quality
 

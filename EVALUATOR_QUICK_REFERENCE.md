@@ -234,15 +234,24 @@ frontend/index.html
 
 ```
 d:\Multidisciplinary Project\
-├── README.md (370 lines) ← Start here for overview
-├── PRODUCTION_QUALITY_SUMMARY.md ← Detailed improvements
+├── README.md                     ← Start here for overview
+├── ARCHITECTURE.md               ← System + ML architecture
+├── CURRENT_STATE_SUMMARY.md      ← Full API & feature inventory
 ├── frontend/
-│   └── index.html (2390 lines) ← Main application
+│   ├── index.html                 ← Main SPA (live tracking)
+│   ├── configure.html             ← Backend URL config UI
+│   ├── route-comparison.html      ← ML route comparison dashboard
+│   ├── route-comparison.js        ← Fetches /api/routes/compare
+│   └── route-style.css            ← Route card styles
 ├── backend/
-│   ├── index.js ← Express server
-│   └── package.json ← Dependencies
+│   ├── index.js                   ← Express server (1036+ lines, 14 endpoints)
+│   ├── seed_routes.js             ← ROUTE_1 + ROUTE_2 definitions
+│   ├── seed_trip_history.js       ← Per-route traffic history
+│   ├── ml_service/app.py          ← Flask XGBoost microservice
+│   └── models/
+│       ├── ActiveFleet.js, TripHistory.js, User.js, Routes.js
 └── tests/
-    └── basic-tests.js (247 lines) ← Test suite
+    └── basic-tests.js             ← Core unit tests
 ```
 
 ---

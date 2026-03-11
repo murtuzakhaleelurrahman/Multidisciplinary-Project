@@ -9,9 +9,9 @@
 - Peak/off-peak ETA MAE: peak baseline 477.4938 s vs XGBoost 326.1945 s (31.69%); off-peak baseline 89.8007 s vs XGBoost 52.8446 s (41.15%)
 - Outputs: backend/ml_results.csv and backend/ml_eta_results.csv
 
-**Last Updated**: February 21, 2026  
-**Status**: ✅ Production-Ready with MongoDB Integration  
-**Version**: 1.0 (Golden Master)
+**Last Updated**: March 11, 2026  
+**Status**: ✅ Production-Ready | ML-Powered | Multi-Route Comparison  
+**Version**: 2.0 – Multi-Route ML ETA Framework
 
 ---
 
@@ -123,18 +123,30 @@ Demo user accounts (authentication)
 ## 🔌 API Endpoints
 
 ### Authentication
-- **POST** `/api/auth/login` - User login (returns username + role)
+- **POST** `/api/auth/login` – User login (returns username + role)
 
 ### Bus Operations
-- **GET** `/api/bus_locations` - Fetch all active buses with health status
-- **POST** `/api/bus/update` - Update bus telemetry (with GPS sanity checks)
-- **POST** `/api/system/reset` - Reset all fleet data
+- **GET** `/api/bus_locations` – Fetch all active buses with health status
+- **POST** `/api/bus/update` – Update bus telemetry (with GPS sanity checks)
+- **POST** `/api/system/reset` – Reset all fleet data
 
 ### Traffic Intelligence
-- **GET** `/api/traffic/heatmap` - Get average speeds per segment (4-hour window)
+- **GET** `/api/traffic/heatmap` – Average speeds per segment (4-hour window)
+- **GET** `/api/traffic/segments` – Per-segment speed aggregates
+- **GET** `/api/traffic_profile` – Traffic profile for a bus
+
+### ML-Powered ETA
+- **GET** `/api/route/:routeId/eta` – Full-route ML ETA prediction (XGBoost + fallback, 30s in-memory cache)
+  - Features: `seg_speed_last_1`, `seg_speed_last_3_mean`, `seg_speed_last_6_mean`, `seg_speed_std_6`
+  - Response includes: `total_eta_minutes`, `mode` (ml / ml-hybrid / fallback), `ml_segments`, `fallback_segments`, per-segment breakdown
+- **GET** `/api/routes/compare` – Side-by-side comparison of ROUTE_1 vs ROUTE_2
+  - Per-route: `eta_minutes`, `baseline_eta_minutes`, `ml_improvement_minutes`, `average_speed_kmh`, `congestion_level`, `reliability_score`, `mode`
+  - Top-level: `fastest_route`, `eta_difference_minutes`
+- **POST** `/api/ml-eta` – Direct ML service proxy (payload forwarded to Render ML service)
 
 ### System
-- **GET** `/` - Health check endpoint
+- **GET** `/api/health` – Service health, MongoDB status, uptime
+- **GET** `/` – Liveness probe
 
 ---
 
@@ -144,6 +156,8 @@ Demo user accounts (authentication)
 |---------|---------------|--------|
 | **Live Tracking** | 2s polling, smooth marker animation | ✅ |
 | **Smart ETA** | Uses actual bus speed + staleness penalty | ✅ |
+| **ML Route ETA** | XGBoost per-segment prediction via external service | ✅ |
+| **Route Comparison** | 5-metric analysis (speed, congestion, reliability, ML improvement) | ✅ |
 | **Stop Monitoring** | 3-tier alerts (1000m, 300m, 100m) | ✅ |
 | **Delay Reporting** | Crowdsourced (3 reports → flagged) | ✅ |
 | **Route Planning** | Nominatim + OSRM with geometry caching | ✅ |
@@ -152,6 +166,7 @@ Demo user accounts (authentication)
 | **User Authentication** | Demo login system | ✅ |
 | **Occupancy Display** | Color-coded passenger counts | ✅ |
 | **Signal Quality** | Live / Stale / Offline indicators | ✅ |
+| **Route Comparison Dashboard** | `route-comparison.html` renders live API data | ✅ |
 
 ---
 
@@ -186,8 +201,11 @@ cp .env.example .env
 # Edit .env and set MONGODB_URI
 
 # 3. Seed demo data
-node seed_traffic.js    # 30 days of traffic patterns
-node seed_users.js      # 3 demo accounts
+node seed_routes.js                    # ROUTE_1 + ROUTE_2 definitions
+node seed_trip_history.js              # ROUTE_1 traffic history (2-hour window)
+node seed_trip_history.js ROUTE_2      # ROUTE_2 differentiated traffic profile
+node seed_traffic.js                   # Legacy heatmap traffic data
+node seed_users.js                     # 3 demo accounts
 
 # 4. Start server
 node index.js

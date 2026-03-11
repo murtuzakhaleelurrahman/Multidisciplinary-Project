@@ -1,6 +1,63 @@
 # 🎯 FINAL SUMMARY - What Was Done For You
 
 ---
+## 🤖 ML ETA + Route Intelligence Update (March 2026)
+
+### New Backend APIs
+```
+✅ GET /api/route/:routeId/eta
+   └─ ML-powered full-route ETA prediction
+      ├─ Calls external XGBoost service: https://vit-ml-service.onrender.com
+      ├─ Features: seg_speed_last_1/3_mean/6_mean/std_6 from TripHistory
+      ├─ 1-hour sliding timestamp window (replaced hour_of_day filter)
+      ├─ 30-second in-memory cache (routeEtaCache) to reduce DB + ML calls
+      └─ Fallback: 25 km/h deterministic ETA when ML unavailable
+
+✅ GET /api/routes/compare
+   └─ Orchestrates ETA for ROUTE_1 + ROUTE_2 in parallel
+      ├─ fastest_route + eta_difference_minutes
+      ├─ Per-route: average_speed_kmh, congestion_level (free_flow/moderate/heavy)
+      ├─ reliability_score = 1 - (speed_std_dev / 10), clamped 0–1
+      └─ baseline_eta_minutes + ml_improvement_minutes vs 25 km/h baseline
+```
+
+### New Routes + Seeder Logic
+```
+✅ backend/seed_routes.js (UPDATED)
+   └─ Seeds ROUTE_1: VIT Main Line (3 segments, 3.6 km)
+   └─ Seeds ROUTE_2: VIT Outer Loop (5 segments, 5.8 km)
+      Segments: free-flow (30–34), moderate (22–26), heavy (15–19),
+                unstable (18–28), free-flow (28–33) km/h
+
+✅ backend/seed_trip_history.js (REFACTORED)
+   └─ Now accepts route_id as CLI argument: node seed_trip_history.js ROUTE_2
+   └─ Randomised 10–15 records per segment
+   └─ Timestamps spread over last 120 minutes
+   └─ Supports ROUTE_1 and ROUTE_2 traffic profiles
+```
+
+### New Frontend Files
+```
+✅ frontend/route-comparison.html
+   └─ Decision banner + route cards + system footer
+   └─ Fully dynamic from /api/routes/compare JSON
+
+✅ frontend/route-comparison.js
+   └─ Fetches API, renders renderBanner() / renderRoutes() / renderFooter()
+   └─ Color-coded congestion: green (free_flow), orange (moderate), red (heavy)
+
+✅ frontend/route-style.css
+   └─ Clean card-based layout, responsive flex row
+```
+
+### New Model
+```
+✅ backend/models/Routes.js
+   └─ Mongoose schema for route definitions (route_id, route_name, segments[])
+   └─ Segment fields: from, to, distance_m
+```
+
+---
 ## IEEE ML Pipeline Update (February 26, 2026)
 - Script: backend/eta_ml_pipeline.py
 - Data: backend/trip_history_ml_ready.csv; STOP_DATA loaded from frontend/index.html

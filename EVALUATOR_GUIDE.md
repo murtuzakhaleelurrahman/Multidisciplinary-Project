@@ -73,6 +73,35 @@ Smart Transit – Core Unit Tests
 
 ---
 
+## 3-Minute ML Route Demo
+
+### 1. Test ML ETA for a Single Route
+```bash
+# Hit the ETA endpoint in a running backend
+curl http://localhost:3100/api/route/ROUTE_1/eta
+```
+Expected `mode` field: `"ml"` (or `"ml-hybrid"` / `"fallback"` when ML service is cold-starting)
+
+### 2. Test Route Comparison
+```bash
+curl http://localhost:3100/api/routes/compare
+```
+Expected fields in each route object:
+- `fastest_route`, `eta_difference_minutes`
+- `average_speed_kmh`, `congestion_level` (free_flow / moderate / heavy)
+- `reliability_score` (0–1) — derived from segment speed variance
+- `baseline_eta_minutes` — deterministic 25 km/h reference
+- `ml_improvement_minutes` — difference between baseline and ML ETA
+- `mode`, `ml_segments`, `fallback_segments`
+
+### 3. Open Route Comparison Dashboard
+```
+Open: frontend/route-comparison.html
+```
+Shows decision banner (fastest route + time saved) and side-by-side route cards.
+
+---
+
 ## 2-Minute Feature Walkthrough
 
 | Action | Expected | Score Impact |
@@ -118,11 +147,18 @@ catch(e) {
 
 ### Backend
 ```bash
-curl http://localhost:3000/api/bus_locations
+curl http://localhost:3100/api/bus_locations
 # Returns active buses from MongoDB with lat/lon/speed/health status
 
-curl http://localhost:3000/api/traffic/heatmap
+curl http://localhost:3100/api/traffic/heatmap
 # Returns traffic speed data aggregated from TripHistory collection
+
+curl http://localhost:3100/api/route/ROUTE_1/eta
+# ML-powered full-route ETA. Check: mode = ml | ml-hybrid | fallback
+
+curl http://localhost:3100/api/routes/compare
+# Side-by-side comparison: fastest_route, congestion, reliability_score,
+#   baseline_eta_minutes, ml_improvement_minutes
 ```
 
 ### Tests
