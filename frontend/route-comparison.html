@@ -8,8 +8,17 @@
 
     <div class="container">
 
+        <!-- AI Recommendation Card (New) -->
+        <div id="recommendation-card" class="ai-recommendation"></div>
+
         <!-- Decision Banner -->
         <div id="decision-banner" class="banner"></div>
+
+        <!-- ETA Comparison Chart -->
+        <div id="chart-container" class="chart-wrapper">
+            <h3 class="chart-title">📊 ETA Comparison: ML vs Baseline</h3>
+            <canvas id="etaChart"></canvas>
+        </div>
 
         <!-- Route Cards -->
         <div id="routes-container" class="routes"></div>
@@ -19,6 +28,7 @@
 
     </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="route-comparison.js"></script>
 </body>
 </html>

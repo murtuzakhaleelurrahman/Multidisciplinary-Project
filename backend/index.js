@@ -960,6 +960,145 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
    ROUTE COMPARISON API
    Compares ETA between ROUTE_1 and ROUTE_2 and returns fastest route
    ========================================================= */
+/**
+ * Generate confidence level based on reliability score
+ * @param {Number} reliabilityScore - Score from 0 to 1
+ * @returns {String} "high", "medium", or "low"
+ */
+const getConfidenceLevel = (reliabilityScore) => {
+  if (reliabilityScore >= 0.75) return "high";
+  if (reliabilityScore >= 0.5) return "medium";
+  return "low";
+};
+
+/**
+ * Generate decision factors for a route
+ * @param {Object} routeData - Route summary data
+ * @param {Array} allRoutes - All routes for comparison context
+ * @returns {Array} Array of decision factor strings
+ */
+const generateDecisionFactors = (routeData, allRoutes) => {
+  if (!routeData) return [];
+
+  const factors = [];
+  const otherRoute = allRoutes.find(r => r.route_id !== routeData.route_id);
+
+  // Speed analysis
+  if (otherRoute) {
+    if (routeData.average_speed_kmh > otherRoute.average_speed_kmh + 2) {
+      factors.push("high_speed");
+    } else if (routeData.average_speed_kmh < otherRoute.average_speed_kmh - 2) {
+      factors.push("speed_optimization");
+    }
+  }
+
+  // Congestion analysis
+  if (routeData.congestion_level === "free_flow") {
+    factors.push("low_congestion");
+  } else if (routeData.congestion_level === "heavy") {
+    factors.push("high_congestion");
+  } else if (routeData.congestion_level === "moderate") {
+    factors.push("moderate_congestion");
+  }
+
+  // Reliability analysis
+  if (routeData.reliability_score > 0.7) {
+    factors.push("stable_traffic");
+  } else if (routeData.reliability_score < 0.5) {
+    factors.push("unstable_traffic");
+  }
+
+  // ML optimization analysis
+  if (routeData.ml_improvement_minutes > 3) {
+    factors.push("significant_ml_optimization");
+  } else if (routeData.ml_improvement_minutes > 0.5) {
+    factors.push("ml_optimized");
+  }
+
+  // ETA advantage
+  if (otherRoute) {
+    const etaDifference = otherRoute.eta_minutes - routeData.eta_minutes;
+    if (etaDifference > 2) {
+      factors.push("faster_eta");
+    }
+  }
+
+  return factors.length > 0 ? factors : ["optimized_route"];
+};
+
+/**
+ * Convert decision factors to human-readable descriptions
+ * @param {Array} factors - Array of factor strings
+ * @returns {Array} Array of human-readable descriptions
+ */
+const factorDescriptions = (factors) => {
+  const descriptions = {
+    high_speed: "higher average speed",
+    speed_optimization: "speed optimization",
+    low_congestion: "low congestion",
+    high_congestion: "high congestion",
+    moderate_congestion: "moderate congestion",
+    stable_traffic: "stable traffic patterns",
+    unstable_traffic: "variable traffic conditions",
+    significant_ml_optimization: "significant ML optimization",
+    ml_optimized: "ML-optimized predictions",
+    faster_eta: "better estimated time",
+    optimized_route: "optimized routing"
+  };
+
+  return factors.map(f => descriptions[f] || f);
+};
+
+/**
+ * Generate comprehensive route explainability data
+ * @param {Object} routeData - Route summary data
+ * @param {Array} allRoutes - All routes for comparison context
+ * @returns {Object} Object with reason, confidence_level, decision_factors
+ */
+const generateRouteExplainability = (routeData, allRoutes) => {
+  if (!routeData) {
+    return {
+      reason: "Route data unavailable",
+      confidence_level: "low",
+      decision_factors: []
+    };
+  }
+
+  const factors = generateDecisionFactors(routeData, allRoutes);
+  const descriptions = factorDescriptions(factors);
+  const confidenceLevel = getConfidenceLevel(routeData.reliability_score);
+
+  // Generate reason sentence
+  let reason;
+  if (descriptions.length === 0) {
+    reason = "Chosen due to optimized routing";
+  } else if (descriptions.length === 1) {
+    reason = `Chosen due to ${descriptions[0]}`;
+  } else if (descriptions.length === 2) {
+    reason = `Chosen due to ${descriptions[0]} and ${descriptions[1]}`;
+  } else {
+    const lastDesc = descriptions.pop();
+    reason = `Chosen due to ${descriptions.join(", ")}, and ${lastDesc}`;
+  }
+
+  return {
+    reason,
+    confidence_level: confidenceLevel,
+    decision_factors: factors
+  };
+};
+
+/**
+ * Generate a simple reason string (for backward compatibility)
+ * @param {Object} routeData - Route summary data
+ * @param {Array} allRoutes - All routes for comparison context
+ * @returns {String} Human-readable reason string
+ */
+const generateRouteReason = (routeData, allRoutes) => {
+  const explainability = generateRouteExplainability(routeData, allRoutes);
+  return explainability.reason;
+};
+
 app.get("/api/routes/compare", async (req, res) => {
   if (!dbReady) return res.status(503).json({ error: "Database not ready" });
 
@@ -1040,9 +1179,28 @@ app.get("/api/routes/compare", async (req, res) => {
     const route1Summary = buildRouteSummary("ROUTE_1", route1Response.data);
     const route2Summary = buildRouteSummary("ROUTE_2", route2Response.data);
 
+    // Generate comprehensive explainable AI data for each route
+    const allSummaries = [route1Summary, route2Summary];
+    
+    const route1Explainability = generateRouteExplainability(route1Summary, allSummaries);
+    route1Summary.reason = route1Explainability.reason;
+    route1Summary.confidence_level = route1Explainability.confidence_level;
+    route1Summary.decision_factors = route1Explainability.decision_factors;
+
+    const route2Explainability = generateRouteExplainability(route2Summary, allSummaries);
+    route2Summary.reason = route2Explainability.reason;
+    route2Summary.confidence_level = route2Explainability.confidence_level;
+    route2Summary.decision_factors = route2Explainability.decision_factors;
+
+    // Generate top-level decision reason for the fastest route
+    const fastestSummary = fastestRoute === "ROUTE_1" ? route1Summary : route2Summary;
+    const fastestExplainability = generateRouteExplainability(fastestSummary, allSummaries);
+    const decisionReason = fastestExplainability.reason;
+
     res.json({
       fastest_route: fastestRoute,
       eta_difference_minutes: etaDifferenceMinutes,
+      decision_reason: decisionReason,
       routes: [
         route1Summary,
         route2Summary

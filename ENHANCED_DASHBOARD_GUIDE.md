@@ -7,7 +7,8 @@
 - Speed MAE: baseline 3.8504 km/h, XGBoost 2.6191 km/h (31.98% improvement)
 - ETA MAE: baseline 187.0375 s, XGBoost 121.4031 s (35.09% improvement), Wilcoxon p=0.0
 - Peak/off-peak ETA MAE: peak baseline 477.4938 s vs XGBoost 326.1945 s (31.69%); off-peak baseline 89.8007 s vs XGBoost 52.8446 s (41.15%)
-- Outputs: backend/ml_results.csv and backend/ml_eta_results.csv
+- Advanced analysis: SHAP (bar + dot), ETA residual histogram, ETA error CDF, P50/P90 percentile metrics
+- Outputs: backend/ml_results.csv, backend/ml_eta_results.csv, backend/shap_summary_bar.png, backend/shap_summary_dot.png, backend/eta_residual_histogram.png, backend/eta_error_cdf.png
 
 ## 🎨 Design Overview
 
