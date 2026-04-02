@@ -718,55 +718,6 @@ app.post("/api/ml-eta", async (req, res) => {
   });
 });
 
-// Temporary deployment debug route to verify route table and /api namespace behavior.
-app.get("/api/debug-routes", (req, res) => {
-  res.send("ML route should exist");
-});
-
-// Temporary route inspector for debugging 404s on deployed environments.
-app.get("/api/debug-registered-routes", (req, res) => {
-  const routes = [];
-
-  const collect = (stack, prefix = "") => {
-    (stack || []).forEach((layer) => {
-      if (layer.route && layer.route.path) {
-        const methods = Object.keys(layer.route.methods || {})
-          .filter((m) => layer.route.methods[m])
-          .map((m) => m.toUpperCase());
-
-        routes.push({
-          path: `${prefix}${layer.route.path}`,
-          methods
-        });
-        return;
-      }
-
-      // Nested routers can be mounted via middleware layers.
-      if (layer.name === "router" && layer.handle?.stack) {
-        collect(layer.handle.stack, prefix);
-      }
-    });
-  };
-
-  const rootStack = app?._router?.stack || app?.router?.stack || [];
-  collect(rootStack);
-
-  res.json({
-    total_routes: routes.length,
-    routes
-  });
-});
-
-app.get("/api/debug-build", (req, res) => {
-  res.json({
-    render_git_commit: process.env.RENDER_GIT_COMMIT || null,
-    render_service_id: process.env.RENDER_SERVICE_ID || null,
-    render_instance_id: process.env.RENDER_INSTANCE_ID || null,
-    node_env: process.env.NODE_ENV || null,
-    port: process.env.PORT || null
-  });
-});
-
 /* =========================================================
    QUICK TEST ENDPOINT (Testing ML Service Connection)
    ========================================================= */
