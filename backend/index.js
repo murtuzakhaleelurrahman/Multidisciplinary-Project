@@ -718,6 +718,35 @@ app.post("/api/ml-eta", async (req, res) => {
   });
 });
 
+// Temporary deployment debug route to verify route table and /api namespace behavior.
+app.get("/api/debug-routes", (req, res) => {
+  res.send("ML route should exist");
+});
+
+// Temporary route inspector for debugging 404s on deployed environments.
+app.get("/api/debug-registered-routes", (req, res) => {
+  const routes = [];
+
+  const stack = app?._router?.stack || [];
+  stack.forEach((layer) => {
+    if (layer.route && layer.route.path) {
+      const methods = Object.keys(layer.route.methods || {})
+        .filter((m) => layer.route.methods[m])
+        .map((m) => m.toUpperCase());
+
+      routes.push({
+        path: layer.route.path,
+        methods
+      });
+    }
+  });
+
+  res.json({
+    total_routes: routes.length,
+    routes
+  });
+});
+
 /* =========================================================
    QUICK TEST ENDPOINT (Testing ML Service Connection)
    ========================================================= */
