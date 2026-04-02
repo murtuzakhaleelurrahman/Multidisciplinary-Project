@@ -1208,34 +1208,9 @@ app.get("/api/routes/compare", async (req, res) => {
   }
 });
 
-// Temporary route listing for production path verification (to be removed after debug).
-const listRoutes = (appInstance) => {
-  const routes = [];
-  const stack = appInstance?._router?.stack || appInstance?.router?.stack || [];
-
-  stack.forEach((middleware) => {
-    if (middleware.route) {
-      routes.push(middleware.route.path);
-    } else if (middleware.name === 'router' && middleware.handle?.stack) {
-      middleware.handle.stack.forEach((handler) => {
-        if (handler.route) {
-          routes.push(handler.route.path);
-        }
-      });
-    }
-  });
-
-  return routes;
-};
-
-app.get("/api/debug-route-list", (req, res) => {
-  res.json({ routes: listRoutes(app) });
-});
-
 /* =========================================================
    START SERVER
    ========================================================= */
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log("REGISTERED ROUTES:", listRoutes(app));
 });
