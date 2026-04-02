@@ -724,7 +724,7 @@ app.post("/api/ml-eta", async (req, res) => {
 app.get("/quick-test-eta", async (req, res) => {
   try {
     const response = await axios.post(
-      `${process.env.ML_SERVICE_URL}/predict`,
+      `${ML_SERVICE_URL}/predict`,
       {
         segment_distance_m: 1500,
         hour_of_day: 17,
