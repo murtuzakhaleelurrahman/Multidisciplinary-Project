@@ -771,10 +771,6 @@ app.get("/api/route/:routeId/eta", async (req, res) => {
     return res.json(routeEtaCache[cacheKey].data);
   }
 
-  // DEBUG: Log ML Service URL to verify it's loaded
-  console.log("🔍 DEBUG - ML_SERVICE_URL:", process.env.ML_SERVICE_URL);
-  console.log("🔍 DEBUG - ML_SERVICE_URL (from constant):", ML_SERVICE_URL);
-
   try {
     // Fetch route definition
     const route = await Routes.findOne({ route_id: routeId });
