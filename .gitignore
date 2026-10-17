@@ -1,2 +1,27 @@
-backend/node_modules
-debug.log
+# Dependencies and virtual environments
+node_modules/
+.venv/
+venv/
+
+# Secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Test credentials and generated data
+test-login.json
+trip_history*.csv
+ml*_results.csv
+
+# Logs, temporary files, and editor settings
+*.log
+*.bak
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
